@@ -21,6 +21,9 @@ tcgplayer_api_urls = {
     "Alpha": "https://infinite-api.tcgplayer.com/priceguide/set/23335/cards/?rows=5000&productTypeID=128",
     "Beta": "https://infinite-api.tcgplayer.com/priceguide/set/23336/cards/?rows=5000&productTypeID=128",
     "Dust Reward Promos": "https://infinite-api.tcgplayer.com/priceguide/set/23514/cards/?rows=5000&productTypeID=128",
+    "Arthurian Legends Promo": "https://infinite-api.tcgplayer.com/priceguide/set/23778/cards/?rows=5000&productTypeID=128",
+    "Arthurian Legends": "https://infinite-api.tcgplayer.com/priceguide/set/23588/cards/?rows=5000&productTypeID=128",
+    "Dragonlord": "https://infinite-api.tcgplayer.com/priceguide/set/24378/cards/?rows=5000&productTypeID=128",
 }
 
 def get_card_data_from_api(set_name: str):
