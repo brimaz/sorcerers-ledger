@@ -41,14 +41,14 @@
             flex-wrap: wrap;
             justify-content: center;
             align-items: center;
-            gap: 10px; /* Add some space between controls */
+            gap: 10px;
         }
         .sort-controls label {
             margin-right: 10px;
             font-weight: bold;
             display: flex;
             align-items: center;
-            gap: 5px; /* Space between label text and checkbox */
+            gap: 5px;
             white-space: nowrap;
         }
         .sort-controls select {
@@ -56,7 +56,7 @@
             border-radius: 5px;
             border: 1px solid #ddd;
             flex-grow: 1;
-            min-width: 150px; /* Ensure it doesn't get too small */
+            min-width: 150px;
             max-width: 250px;
         }
 
@@ -65,13 +65,13 @@
                 flex-direction: column;
                 align-items: flex-start;
                 text-align: left;
-                gap: 5px; /* Adjust gap for mobile stacking */
+                gap: 5px;
             }
             .sort-controls label {
                 display: flex;
                 align-items: center;
                 justify-content: flex-start;
-                width: auto; /* Allow labels to shrink wrap their content */
+                width: auto;
                 margin-left: 0;
                 margin-right: 0;
                 margin-bottom: 0px;
@@ -81,8 +81,8 @@
                 margin-bottom: 10px;
             }
             .sort-controls label input[type="checkbox"] {
-                margin-left: 5px; /* Space between label text and checkbox */
-                order: 1; /* Puts checkbox after label text */
+                margin-left: 5px;
+                order: 1;
             }
         }
 
@@ -134,13 +134,16 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.2);
             background-color: white;
             padding: 5px;
-            display: none;
+            display: none; /* Default to hidden */
             max-width: 200px;
             height: auto;
             min-width: 150px;
             min-height: 150px;
             border: 1px solid #ccc;
             background-color: #f9f9f9;
+        }
+        .hover-image.show-hover-image {
+            display: block;
         }
         .foil-sheen {
             box-shadow: 0 0 15px 5px rgba(255, 215, 0, 0.6);
@@ -154,8 +157,7 @@
             max-width: 100%;
             margin: 0 auto;
         }
-        .card-column {
-        }
+
 
         .rarity-subheader {
             text-align: center;
@@ -166,13 +168,19 @@
             padding-bottom: 5px;
         }
 
+        .condition-subheader {
+            text-align: center;
+            color: #666;
+            margin: 10px 0 5px 10px;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+
         @media (max-width: 600px) {
             .card-columns {
                 grid-template-columns: 1fr;
                 padding: 0 10px;
                 gap: 0;
-            }
-            .card-column {
             }
             .card-section {
                 margin: 10px 0;
@@ -229,6 +237,7 @@
             padding: 10px;
             text-align: center;
             color: #555;
+            margin-top: 15px;
         }
 
         .set-icon {
@@ -236,12 +245,31 @@
             line-height: 1;
         }
 
+        nav {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        nav a {
+            margin: 0 10px;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        nav a.active {
+            color: #000;
+        }
+
+        nav a:not(.active) {
+            color: #007bff;
+        }
+
     </style>
 </head>
 <body>
-    <nav style="text-align: center; margin-bottom: 20px;">
-        <a href="index.html?view=nonfoil" style="margin: 0 10px; text-decoration: none; color: {% if current_page == 'nonfoil_overview' %}#000{% else %}#007bff{% endif %}; font-weight: bold;">Non-Foil Overview</a>
-        <a href="index.html?view=foil" style="margin: 0 10px; text-decoration: none; color: {% if current_page == 'foil_overview' %}#000{% else %}#007bff{% endif %}; font-weight: bold;">Foil Overview</a>
+    <nav>
+        <a href="index.html?view=nonfoil" class="{% if current_page == 'nonfoil_overview' %}active{% endif %}">Non-Foil Overview</a>
+        <a href="index.html?view=foil" class="{% if current_page == 'foil_overview' %}active{% endif %}">Foil Overview</a>
     </nav>
     <h1></h1>
     
@@ -255,23 +283,18 @@
         </select>
         <label for="group-by-rarity">Group by Rarity:<input type="checkbox" id="group-by-rarity" onchange="handleRarityGroupChange()"></label>
         <label for="filter-by-value">Show Only High Value Cards:<input type="checkbox" id="filter-by-value" onchange="handleValueFilterChange()"></label>
+        <label for="filter-by-nm-condition">Show Only NM Condition:<input type="checkbox" id="filter-by-nm-condition" onchange="handleNmConditionFilterChange()"></label>
     </div>
     
     <div class="card-columns">
         
     </div>
     
-    <div id="hover-image-display" class="hover-image">
-        <img src="" alt="Card Image" style="max-width: 100%; height: auto; display: none;" oncontextmenu="return false;">
-        <div id="hover-image-text" style="display: none; padding: 10px; text-align: center; color: #555;">No Image Available</div>
-    </div>
-
-    <!-- Mobile Modal Structure -->
     <div id="mobile-image-modal" class="modal-overlay">
         <div class="modal-content">
             <button class="modal-close-button" id="modal-close"><img src="assets/sl-modal-close.png" alt="Close"></button>
-            <img src="" alt="Card Image" class="modal-image" oncontextmenu="return false;">
-            <div class="modal-no-image-text" style="display: none;">No Image Available</div>
+            <img src="" alt="Card Image Not Available" class="modal-image" oncontextmenu="return false;">
+            <div class="modal-no-image-text">Card Image Not Available</div>
         </div>
     </div>
 
@@ -299,11 +322,14 @@
             "Ordinary": 0.75,
         };
 
+        const NON_FOIL_CONDITION_ORDER = ["NM", "LP", "MP", "HP", "D"];
+        const FOIL_CONDITION_ORDER = ["NMF", "LPF", "MPF", "HPF"];
+
         function getSortOption() {
             return document.getElementById('sort-select').value;
         }
 
-        function getSortedData(setsData, setsDataByName, setsDataByRarityPrice, setsDataByRarityName, sortOption, isGrouped, isFiltered) {
+        function getSortedData(setsData, setsDataByName, setsDataByRarityPrice, setsDataByRarityName, sortOption, isGrouped, isFiltered, isFilteredNmCondition) {
             let processedData = {};
 
             if (isGrouped) {
@@ -336,7 +362,31 @@
                             filteredData[setName][rarity] = processedData[setName][rarity].filter(card => parseFloat(card.price.replace(',', '')) > threshold);
                         }
                     }
-                    return filteredData;
+                    processedData = filteredData;
+                }
+
+                if (isFilteredNmCondition) {
+                    const filteredNmData = {};
+                    const nmCondition = isFoilPage ? "NMF" : "NM";
+                    for (const setName in processedData) {
+                        filteredNmData[setName] = {};
+                        for (const rarity in processedData[setName]) {
+                            filteredNmData[setName][rarity] = processedData[setName][rarity].filter(card => card.condition === nmCondition);
+                        }
+                    }
+                    return filteredNmData;
+                } else { // Changed from else if (isGrouped)
+                    const sortedByConditionData = {};
+                    const currentConditionOrder = isFoilPage ? FOIL_CONDITION_ORDER : NON_FOIL_CONDITION_ORDER;
+                    for (const setName in processedData) {
+                        sortedByConditionData[setName] = {};
+                        for (const rarity in processedData[setName]) {
+                            sortedByConditionData[setName][rarity] = [...processedData[setName][rarity]].sort((a, b) => {
+                                return currentConditionOrder.indexOf(a.condition) - currentConditionOrder.indexOf(b.condition);
+                            });
+                        }
+                    }
+                    return sortedByConditionData;
                 }
                 return processedData;
 
@@ -363,9 +413,26 @@
                             return parseFloat(card.price.replace(',', '')) > threshold;
                         });
                     }
-                    return filteredData;
+                    processedData = filteredData;
                 }
-                return processedData;
+
+                if (isFilteredNmCondition) {
+                    const filteredNmData = {};
+                    const nmCondition = isFoilPage ? "NMF" : "NM";
+                    for (const setName in processedData) {
+                        filteredNmData[setName] = processedData[setName].filter(card => card.condition === nmCondition);
+                    }
+                    return filteredNmData;
+                } else {
+                    const sortedByConditionData = {};
+                    const currentConditionOrder = isFoilPage ? FOIL_CONDITION_ORDER : NON_FOIL_CONDITION_ORDER;
+                    for (const setName in processedData) {
+                        sortedByConditionData[setName] = [...processedData[setName]].sort((a, b) => {
+                            return currentConditionOrder.indexOf(a.condition) - currentConditionOrder.indexOf(b.condition);
+                        });
+                    }
+                    return sortedByConditionData;
+                }
             }
         }
 
@@ -374,8 +441,9 @@
             cardColumns.innerHTML = '';
             const isGrouped = isGroupedByRarity();
             const isFiltered = isFilteredByValue();
+            const isFilteredNmCondition = isFilteredByNmCondition();
 
-            const setsDataToRender = getSortedData(allSetsCardData, allSetsCardDataByName, allSetsCardDataByRarityPrice, allSetsCardDataByRarityName, sortOption, isGrouped, isFiltered);
+            const setsDataToRender = getSortedData(allSetsCardData, allSetsCardDataByName, allSetsCardDataByRarityPrice, allSetsCardDataByRarityName, sortOption, isGrouped, isFiltered, isFilteredNmCondition);
             
             for (const setName in setsDataToRender) {
                 const cardColumn = document.createElement('div');
@@ -410,58 +478,120 @@
                                 noRarityCardsMessage.textContent = 'No cards available for this rarity.';
                                 ul.appendChild(noRarityCardsMessage);
                             } else {
-                                rarityCards.forEach(card => {
-                                    const listItem = document.createElement('li');
-                                    let cardHtml = '';
-                                    const cardNameContent = `${card['name']} (${card['condition']})`;
+                                if (!isFilteredNmCondition) {
+                                    const groupedByCondition = {};
+                                    const currentConditionOrder = isFoilPage ? FOIL_CONDITION_ORDER : NON_FOIL_CONDITION_ORDER;
+                                    currentConditionOrder.forEach(condition => {
+                                        groupedByCondition[condition] = rarityCards.filter(card => card.condition === condition);
+                                    });
 
-                                    if (card['productID']) {
-                                        const imageUrl = `https://tcgplayer-cdn.tcgplayer.com/product/${card['productID']}_in_1000x1000.jpg`;
-                                        cardHtml = `
-                                            <span class="card-name">
-                                                <a href="#" 
-                                                   onmouseover="if (!isMobileOrTablet()) showImage(this, '${imageUrl}');"
-                                                   onmouseout="if (!isMobileOrTablet()) hideImage();">
-                                                    ${cardNameContent}
-                                                </a>
-                                            </span>
-                                            <span class="card-price">$${card['price']}</span>
-                                        `;
-                                    }
-                                    else {
-                                        cardHtml = `
-                                            <span class="card-name">
-                                                <a href="#" 
-                                                   onmouseover="if (!isMobileOrTablet()) showImage(this, '');"
-                                                   onmouseout="if (!isMobileOrTablet()) hideImage();">
-                                                    ${cardNameContent}
-                                                </a>
-                                            </span>
-                                            <span class="card-price">$${card['price']}</span>
-                                        `;
-                                    }
-                                    listItem.innerHTML = cardHtml;
-                                    const cardLink = listItem.querySelector('.card-name a');
-                                    
-                                    if (isMobileOrTablet()) {
-                                        const imageUrlForClick = card['productID'] ? `https://tcgplayer-cdn.tcgplayer.com/product/${card['productID']}_in_1000x1000.jpg` : '';
-                                        cardLink.onclick = (event) => {
-                                            event.preventDefault();
-                                            const modalOverlay = document.getElementById('mobile-image-modal');
-                                        if (modalOverlay.style.display === 'flex') {
-                                            hideModalImage();
-                                            } else {
-                                            showModalImage(imageUrlForClick);
+                                    currentConditionOrder.forEach(condition => {
+                                        const conditionCards = groupedByCondition[condition];
+                                        if (conditionCards && conditionCards.length > 0) {
+                                            const conditionSubheader = document.createElement('div');
+                                            conditionSubheader.className = 'condition-subheader';
+                                            conditionSubheader.textContent = `Condition: ${condition}`;
+                                            ul.appendChild(conditionSubheader);
+
+                                            conditionCards.forEach(card => {
+                                                const listItem = document.createElement('li');
+                                                let cardHtml = '';
+                                                const cardNameContent = `${card['name']} (${card['condition']})`;
+
+                                                if (card['productID']) {
+                                                    const imageUrl = `https://tcgplayer-cdn.tcgplayer.com/product/${card['productID']}_in_1000x1000.jpg`;
+                                                    cardHtml = `
+                                                        <span class="card-name">
+                                                            <a href="#" 
+                                                               onmouseover="showImage(this, '${imageUrl}', isFoilPage);">
+                                                                ${cardNameContent}
+                                                            </a>
+                                                        </span>
+                                                        <span class="card-price">$${card['price']}</span>
+                                                    `;
+                                                }
+                                                else {
+                                                    cardHtml = `
+                                                        <span class="card-name">
+                                                            <a href="#" 
+                                                               onmouseover="showImage(this, '', isFoilPage);">
+                                                                ${cardNameContent}
+                                                            </a>
+                                                        </span>
+                                                        <span class="card-price">$${card['price']}</span>
+                                                    `;
+                                                }
+                                                listItem.innerHTML = cardHtml;
+                                                const cardLink = listItem.querySelector('.card-name a');
+                                                
+                                                if (isMobileOrTablet()) {
+                                                    const imageUrlForClick = card['productID'] ? `https://tcgplayer-cdn.tcgplayer.com/product/${card['productID']}_in_1000x1000.jpg` : '';
+                                                    cardLink.onclick = (event) => {
+                                                        event.preventDefault();
+                                                        const modalOverlay = document.getElementById('mobile-image-modal');
+                                                    if (modalOverlay.style.display === 'flex') {
+                                                        hideModalImage();
+                                                        } else {
+                                                        showModalImage(imageUrlForClick, isFoilPage);
+                                                    }
+                                                };
+                                            }
+
+                                            ul.appendChild(listItem);
+                                        });
                                         }
-                                    };
-                                }
+                                    });
+                                } else { // if isFilteredNmCondition is true
+                                    rarityCards.forEach(card => {
+                                        const listItem = document.createElement('li');
+                                        let cardHtml = '';
+                                        const cardNameContent = `${card['name']} (${card['condition']})`;
 
-                                ul.appendChild(listItem);
-                            });
+                                        if (card['productID']) {
+                                            const imageUrl = `https://tcgplayer-cdn.tcgplayer.com/product/${card['productID']}_in_1000x1000.jpg`;
+                                            cardHtml = `
+                                                <span class="card-name">
+                                                    <a href="#" 
+                                                       onmouseover="showImage(this, '${imageUrl}', isFoilPage);">
+                                                        ${cardNameContent}
+                                                    </a>
+                                                </span>
+                                                <span class="card-price">$${card['price']}</span>
+                                            `;
+                                        }
+                                        else {
+                                            cardHtml = `
+                                                <span class="card-name">
+                                                    <a href="#" 
+                                                       onmouseover="showImage(this, '', isFoilPage);">
+                                                        ${cardNameContent}
+                                                    </a>
+                                                </span>
+                                                <span class="card-price">$${card['price']}</span>
+                                            `;
+                                        }
+                                        listItem.innerHTML = cardHtml;
+                                        const cardLink = listItem.querySelector('.card-name a');
+                                        
+                                        if (isMobileOrTablet()) {
+                                            const imageUrlForClick = card['productID'] ? `https://tcgplayer-cdn.tcgplayer.com/product/${card['productID']}_in_1000x1000.jpg` : '';
+                                            cardLink.onclick = (event) => {
+                                                event.preventDefault();
+                                                const modalOverlay = document.getElementById('mobile-image-modal');
+                                            if (modalOverlay.style.display === 'flex') {
+                                                hideModalImage();
+                                                } else {
+                                                showModalImage(imageUrlForClick, isFoilPage);
+                                            }
+                                        };
+                                    }
+                                    ul.appendChild(listItem);
+                                });
+                                }
                             }
                         });
                     }
-                } else {
+                } else { // Not grouped by rarity
                     const sortedCards = setCardsData;
                     cardSection.innerHTML = `<h2>${setIcon} ${setName}</h2><ul></ul>`;
                     const ul = cardSection.querySelector('ul');
@@ -470,53 +600,115 @@
                         noCardsMessage.textContent = 'No cards available for this set.';
                         ul.appendChild(noCardsMessage);
                     } else {
-                        sortedCards.forEach(card => {
-                            const listItem = document.createElement('li');
-                            let cardHtml = '';
-                            const cardNameContent = `${card['name']} (${card['condition']})`;
+                        if (!isFilteredNmCondition) { // Only group by condition if NM filter is off
+                            const groupedByCondition = {};
+                            const currentConditionOrder = isFoilPage ? FOIL_CONDITION_ORDER : NON_FOIL_CONDITION_ORDER;
+                            currentConditionOrder.forEach(condition => {
+                                groupedByCondition[condition] = sortedCards.filter(card => card.condition === condition);
+                            });
 
-                            if (card['productID']) {
-                                const imageUrl = `https://tcgplayer-cdn.tcgplayer.com/product/${card['productID']}_in_1000x1000.jpg`;
-                                cardHtml = `
-                                    <span class="card-name">
-                                        <a href="#" 
-                                           onmouseover="if (!isMobileOrTablet()) showImage(this, '${imageUrl}');"
-                                           onmouseout="if (!isMobileOrTablet()) hideImage();">
-                                            ${cardNameContent}
-                                        </a>
-                                    </span>
-                                    <span class="card-price">$${card['price']}</span>
-                                `;
-                            } else {
-                                cardHtml = `
-                                    <span class="card-name">
-                                        <a href="#" 
-                                           onmouseover="if (!isMobileOrTablet()) showImage(this, '');"
-                                           onmouseout="if (!isMobileOrTablet()) hideImage();">
-                                            ${cardNameContent}
-                                        </a>
-                                    </span>
-                                    <span class="card-price">$${card['price']}</span>
-                                `;
-                            }
-                            listItem.innerHTML = cardHtml;
-                            const cardLink = listItem.querySelector('.card-name a');
-                            
-                            if (isMobileOrTablet()) {
-                                const imageUrlForClick = card['productID'] ? `https://tcgplayer-cdn.tcgplayer.com/product/${card['productID']}_in_1000x1000.jpg` : '';
-                                cardLink.onclick = (event) => {
-                                    event.preventDefault();
-                                    const modalOverlay = document.getElementById('mobile-image-modal');
-                                if (modalOverlay.style.display === 'flex') {
-                                    hideModalImage();
-                                    } else {
-                                    showModalImage(imageUrlForClick);
+                            currentConditionOrder.forEach(condition => {
+                                const conditionCards = groupedByCondition[condition];
+                                if (conditionCards && conditionCards.length > 0) {
+                                    const conditionSubheader = document.createElement('div');
+                                    conditionSubheader.className = 'condition-subheader';
+                                    conditionSubheader.textContent = `Condition: ${condition}`;
+                                    ul.appendChild(conditionSubheader);
+
+                                    conditionCards.forEach(card => {
+                                        const listItem = document.createElement('li');
+                                        let cardHtml = '';
+                                        const cardNameContent = `${card['name']} (${card['condition']})`;
+
+                                        if (card['productID']) {
+                                            const imageUrl = `https://tcgplayer-cdn.tcgplayer.com/product/${card['productID']}_in_1000x1000.jpg`;
+                                            cardHtml = `
+                                                <span class="card-name">
+                                                    <a href="#" 
+                                                       onmouseover="showImage(this, '${imageUrl}', isFoilPage);">
+                                                        ${cardNameContent}
+                                                    </a>
+                                                </span>
+                                                <span class="card-price">$${card['price']}</span>
+                                            `;
+                                        } else {
+                                            cardHtml = `
+                                                <span class="card-name">
+                                                    <a href="#" 
+                                                       onmouseover="showImage(this, '', isFoilPage);">
+                                                        ${cardNameContent}
+                                                    </a>
+                                                </span>
+                                                <span class="card-price">$${card['price']}</span>
+                                            `;
+                                        }
+                                        listItem.innerHTML = cardHtml;
+                                        const cardLink = listItem.querySelector('.card-name a');
+                                        
+                                        if (isMobileOrTablet()) {
+                                            const imageUrlForClick = card['productID'] ? `https://tcgplayer-cdn.tcgplayer.com/product/${card['productID']}_in_1000x1000.jpg` : '';
+                                            cardLink.onclick = (event) => {
+                                                event.preventDefault();
+                                                const modalOverlay = document.getElementById('mobile-image-modal');
+                                            if (modalOverlay.style.display === 'flex') {
+                                                hideModalImage();
+                                                } else {
+                                                showModalImage(imageUrlForClick, isFoilPage);
+                                            }
+                                        };
+                                    }
+
+                                    ul.appendChild(listItem);
+                                });
                                 }
-                            };
-                        }
+                            });
+                        } else {
+                            // If isFilteredNmCondition is true, simply display the filtered cards without condition subheaders
+                            sortedCards.forEach(card => {
+                                const listItem = document.createElement('li');
+                                let cardHtml = '';
+                                const cardNameContent = `${card['name']} (${card['condition']})`;
 
-                        ul.appendChild(listItem);
-                    });
+                                if (card['productID']) {
+                                    const imageUrl = `https://tcgplayer-cdn.tcgplayer.com/product/${card['productID']}_in_1000x1000.jpg`;
+                                    cardHtml = `
+                                        <span class="card-name">
+                                            <a href="#" 
+                                               onmouseover="showImage(this, '${imageUrl}', isFoilPage);">
+                                                ${cardNameContent}
+                                            </a>
+                                        </span>
+                                        <span class="card-price">$${card['price']}</span>
+                                    `;
+                                } else {
+                                    cardHtml = `
+                                        <span class="card-name">
+                                            <a href="#" 
+                                               onmouseover="showImage(this, '', isFoilPage);">
+                                                ${cardNameContent}
+                                            </a>
+                                        </span>
+                                        <span class="card-price">$${card['price']}</span>
+                                    `;
+                                }
+                                listItem.innerHTML = cardHtml;
+                                const cardLink = listItem.querySelector('.card-name a');
+                                
+                                if (isMobileOrTablet()) {
+                                    const imageUrlForClick = card['productID'] ? `https://tcgplayer-cdn.tcgplayer.com/product/${card['productID']}_in_1000x1000.jpg` : '';
+                                    cardLink.onclick = (event) => {
+                                        event.preventDefault();
+                                        const modalOverlay = document.getElementById('mobile-image-modal');
+                                    if (modalOverlay.style.display === 'flex') {
+                                        hideModalImage();
+                                        } else {
+                                        showModalImage(imageUrlForClick, isFoilPage);
+                                    }
+                                };
+                            }
+                            ul.appendChild(listItem);
+                        });
+                        }
                     }
                 }
                 cardColumns.appendChild(cardColumn);
@@ -529,6 +721,7 @@
             url.searchParams.set('sort', sortOption);
             url.searchParams.set('groupRarity', isGroupedByRarity());
             url.searchParams.set('filterValue', isFilteredByValue());
+            url.searchParams.set('filterNmCondition', isFilteredByNmCondition());
             window.history.pushState({}, '', url);
             renderCards(sortOption);
         }
@@ -551,84 +744,28 @@
             navigateToSort();
         }
 
-        function isMobileOrTablet() {
-            return window.innerWidth <= 1024;
+        function isFilteredByNmCondition() {
+            const checkbox = document.getElementById('filter-by-nm-condition');
+            return checkbox ? checkbox.checked : false;
         }
 
-        let hoverImageTimeout;
-        let currentImageElement = null;
-
-        function showImage(element, imageUrl) {
-            clearTimeout(hoverImageTimeout);
-            const hoverImageDiv = document.getElementById('hover-image-display');
-            const hoverImage = hoverImageDiv.querySelector('img');
-            const hoverImageText = document.getElementById('hover-image-text');
-
-            if (imageUrl) {
-                hoverImage.src = imageUrl;
-                hoverImage.style.display = 'block';
-                hoverImageText.style.display = 'none';
-                if (isFoilPage) {
-                    hoverImageDiv.classList.add('foil-sheen');
-                } else {
-                    hoverImageDiv.classList.remove('foil-sheen');
-                }
-                const rect = element.getBoundingClientRect();
-                hoverImageDiv.style.top = `${rect.bottom + window.scrollY + 5}px`;
-                hoverImageDiv.style.left = `${rect.left + window.scrollX}px`;
-                hoverImageDiv.style.display = 'block';
-            } else {
-                hoverImage.src = '';
-                hoverImage.style.display = 'none';
-                hoverImageText.style.display = 'block';
-                hoverImageDiv.style.display = 'block';
-                hoverImageDiv.classList.remove('foil-sheen');
-            }
+        function handleNmConditionFilterChange() {
+            navigateToSort();
         }
 
-        function hideImage() {
-            hoverImageTimeout = setTimeout(() => {
-                const hoverImageDiv = document.getElementById('hover-image-display');
-                hoverImageDiv.style.display = 'none';
-                hoverImageDiv.classList.remove('foil-sheen');
-            }, 300);
-        }
-
-        function showModalImage(imageUrl) {
-            const modalOverlay = document.getElementById('mobile-image-modal');
-            const modalImage = modalOverlay.querySelector('.modal-image');
-            const modalNoImageText = modalOverlay.querySelector('.modal-no-image-text');
-
-            if (imageUrl) {
-                modalImage.src = imageUrl;
-                modalImage.style.display = 'block';
-                modalNoImageText.style.display = 'none';
-                if (isFoilPage) {
-                    modalImage.classList.add('foil-sheen');
-                } else {
-                    modalImage.classList.remove('foil-sheen');
-                } 
-            } else {
-                modalImage.src = '';
-                modalImage.style.display = 'none';
-                modalNoImageText.style.display = 'block';
-                modalImage.classList.remove('foil-sheen');
-            }
-            modalOverlay.style.display = 'flex';
-        }
-
-        function hideModalImage() {
-            const modalOverlay = document.getElementById('mobile-image-modal');
-            const modalImage = modalOverlay.querySelector('.modal-image');
-            modalOverlay.style.display = 'none';
-            modalImage.classList.remove('foil-sheen');
-        }
 
         document.addEventListener('DOMContentLoaded', () => {
             const modalCloseButton = document.getElementById('modal-close');
             if (modalCloseButton) {
                 modalCloseButton.addEventListener('click', hideModalImage);
             }
+
+            document.body.addEventListener('mouseout', (event) => {
+                const hoverImageDiv = document.getElementById('hover-image-display');
+                if (hoverImageDiv && !hoverImageDiv.contains(event.relatedTarget)) {
+                    hideImage();
+                }
+            });
         });
 
         async function loadAndRenderCards() {
@@ -651,10 +788,10 @@
                 const foilLink = document.querySelector('a[href*="view=foil"]');
 
                 if (nonFoilLink) {
-                    nonFoilLink.style.color = isFoilPage ? '#007bff' : '#000';
+                    nonFoilLink.classList.toggle('active', isFoilPage);
                 }
                 if (foilLink) {
-                    foilLink.style.color = isFoilPage ? '#000' : '#007bff';
+                    foilLink.classList.toggle('active', !isFoilPage);
                 }
 
                 for (const setName in data) {
@@ -667,6 +804,7 @@
                 const sortParam = urlParams.get('sort');
                 const groupRarityParam = urlParams.get('groupRarity');
                 const filterValueParam = urlParams.get('filterValue');
+                const filterNmConditionParam = urlParams.get('filterNmCondition');
 
                 if (groupRarityParam === 'true') {
                     document.getElementById('group-by-rarity').checked = true;
@@ -684,6 +822,14 @@
                     document.getElementById('filter-by-value').checked = false;
                 }
 
+                if (filterNmConditionParam === 'true') {
+                    document.getElementById('filter-by-nm-condition').checked = true;
+                } else if (filterNmConditionParam === null) {
+                    document.getElementById('filter-by-nm-condition').checked = true;
+                } else {
+                    document.getElementById('filter-by-nm-condition').checked = false;
+                }
+
                 if (sortParam) {
                     document.getElementById('sort-select').value = sortParam;
                     renderCards(sortParam);
@@ -698,5 +844,6 @@
         document.addEventListener('DOMContentLoaded', loadAndRenderCards);
 
     </script>
+    <script src="hover.js"></script>
 </body>
 </html>
