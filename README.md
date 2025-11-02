@@ -1,6 +1,24 @@
 ﻿## sorcerers-ledger
 
-This project fetches card data from the TCGplayer API and generates dynamic HTML pages to display the card prices with hover-over image functionality.
+This project fetches Sorcery: Contested Realm card data from the TCGplayer API and generates a dynamic HTML page to display card prices with hover-over image functionality. The project follows a more organized structure with separate files for CSS and JavaScript, and dedicated directories for data and scripts.
+
+### Project Structure
+
+```
+.
+├── assets/
+│   └── sl-modal-close.png
+├── card-data/
+│   └── card_data.json
+├── index.html
+├── scripts/
+│   ├── hover.js
+│   ├── parse_cards.py
+│   └── script.js
+├── style.css
+├── README.md
+├── requirements.txt
+```
 
 ### Installation
 
@@ -12,20 +30,14 @@ pip install -r requirements.txt
 
 ### Usage
 
-1.  **Generate HTML Pages:**
+1.  **Generate Card Data:**
 
-    Run the `parse_cards.py` script to fetch card data from the TCGplayer API for Alpha, Beta, and Dust Reward Promos sets, and then generate two main HTML overview files:
+    Run the `parse_cards.py` script to fetch card data from the TCGplayer API for Sorcery: Contested Realm sets. This script will populate the `card_data.json` file located in the `card-data/` directory.
 
     ```bash
-    python parse_cards.py
+    python scripts/parse_cards.py
     ```
 
-    This will create the following HTML files in the project root:
-    *   `index.html` (Non-Foil Cards Overview - three columns for Alpha, Beta, Dust Reward Promos)
-    *   `foil_overview.html` (Foil Cards Overview - three columns for Alpha, Beta, Dust Reward Promos)
+2.  **View the Page:**
 
-    The HTML is generated from `template.html` using the Jinja2 templating engine. The `template.html` file also contains the necessary JavaScript to dynamically render the card lists in a three-column layout and handle the hover-over image display directly in the browser.
-
-2.  **View the Pages:**
-
-    Open either `index.html` or `foil_overview.html` in your web browser. You can navigate between the non-foil and foil overview pages using the links provided at the top of each page.
+    Open `index.html` in your web browser. This single page dynamically displays both non-foil and foil card overviews, with options to sort and filter. The CSS for styling is in `style.css`, and the interactive logic is in `scripts/script.js` and `scripts/hover.js`.
