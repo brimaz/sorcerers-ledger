@@ -97,5 +97,74 @@ for set_name, api_url in tcgplayer_api_urls.items():
         "foilByRarityName": sorted_foil_rarities_name,
     }
 
-    with open('card_data.json', 'w', encoding='utf-8') as f:
+def generate_card_data_json(output_file_path: str):
+    all_sets_processed_data = {}
+    
+    RARITIES = ["Ordinary", "Exceptional", "Elite", "Unique"]
+
+    for set_name, api_url in tcgplayer_api_urls.items():
+        raw_cards_data = get_card_data_from_api(set_name)
+        
+        non_foil_cards = []
+        foil_cards = []
+
+        non_foil_rarities = {rarity: [] for rarity in RARITIES}
+        foil_rarities = {rarity: [] for rarity in RARITIES}
+
+        for card in raw_cards_data:
+            card_name = card.get("productName", "N/A")
+            price = card.get("marketPrice", 0.0)
+            condition = card.get("condition", "N/A")
+            rarity = card.get("rarity", "N/A")
+            product_id = card.get("productID", None)
+
+            condition_abbreviations = {
+                "Damaged": "D",
+                "Heavily Played Foil": "HPF",
+                "Lightly Played": "LP",
+                "Lightly Played Foil": "LPF",
+                "Moderately Played": "MP",
+                "Moderately Played Foil": "MPF",
+                "Near Mint": "NM",
+                "Near Mint Foil": "NMF",
+            }
+            abbreviated_condition = condition_abbreviations.get(condition, condition)
+
+            price_str = f"{price:.2f}"
+
+            card_info = {"name": card_name, "price": price_str, "condition": abbreviated_condition, "rarity": rarity, "productID": product_id}
+
+            if card.get("printing") == "Foil":
+                foil_cards.append(card_info)
+                if rarity in foil_rarities:
+                    foil_rarities[rarity].append(card_info)
+            else:
+                non_foil_cards.append(card_info)
+                if rarity in non_foil_rarities:
+                    non_foil_rarities[rarity].append(card_info)
+
+        def sort_by_price(cards):
+            return sorted(cards, key=lambda x: float(x["price"].replace(',', '')), reverse=True)
+
+        def sort_by_name(cards):
+            return sorted(cards, key=lambda x: x["name"])
+
+        # Sort rarity-based lists
+        sorted_non_foil_rarities_price = {rarity: sort_by_price(cards) for rarity, cards in non_foil_rarities.items()}
+        sorted_foil_rarities_price = {rarity: sort_by_price(cards) for rarity, cards in foil_rarities.items()}
+        sorted_non_foil_rarities_name = {rarity: sort_by_name(cards) for rarity, cards in non_foil_rarities.items()}
+        sorted_foil_rarities_name = {rarity: sort_by_name(cards) for rarity, cards in foil_rarities.items()}
+
+        all_sets_processed_data[set_name] = {
+            "nonFoil": sort_by_price(non_foil_cards),
+            "foil": sort_by_price(foil_cards),
+            "nonFoilByName": sort_by_name(non_foil_cards),
+            "foilByName": sort_by_name(foil_cards),
+            "nonFoilByRarityPrice": sorted_non_foil_rarities_price,
+            "foilByRarityPrice": sorted_foil_rarities_price,
+            "nonFoilByRarityName": sorted_non_foil_rarities_name,
+            "foilByRarityName": sorted_foil_rarities_name,
+        }
+
+    with open(output_file_path, 'w', encoding='utf-8') as f:
         json.dump(all_sets_processed_data, f, ensure_ascii=False, indent=4)

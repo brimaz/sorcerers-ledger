@@ -110,6 +110,15 @@ li {
     flex-basis: 70%;
     max-width: 100%;
 }
+
+.card-name a:link,
+.card-name a:visited,
+.card-name a:hover,
+.card-name a:active {
+    color: #333333;
+    text-decoration: none;
+}
+
 .card-price {
     color: #666;
     font-size: 0.9em;
@@ -125,12 +134,12 @@ li:last-child {
     top: 0;
     z-index: 10;
     border: 1px solid #ddd;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-    background-color: white;
-    padding: 5px;
-    display: none; /* Default to hidden */
-    max-width: 200px;
-    height: auto;
+    background-color: #fff;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    padding: 10px;
+    border-radius: 5px;
+    display: none;
+    max-width: 300px;
     min-width: 150px;
     min-height: 150px;
     border: 1px solid #ccc;
