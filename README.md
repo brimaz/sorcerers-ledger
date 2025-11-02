@@ -9,9 +9,10 @@ This project fetches Sorcery: Contested Realm card data from the TCGplayer API a
 ├── assets/
 │   └── sl-modal-close.png
 ├── card-data/
-│   └── card_data.json
+│   └── {card data json files}
 ├── index.html
 ├── scripts/
+│   ├── batch_update.py
 │   ├── hover.js
 │   ├── parse_cards.py
 │   └── script.js
@@ -30,13 +31,17 @@ pip install -r requirements.txt
 
 ### Usage
 
-1.  **Generate Card Data:**
+1.  **Generate and Manage Card Data:**
 
-    Run the `parse_cards.py` script to fetch card data from the TCGplayer API for Sorcery: Contested Realm sets. This script will populate the `card_data.json` file located in the `card-data/` directory.
+    The `batch_update.py` script is responsible for fetching the latest card data from the TCGplayer API, generating a new `card_data.json` file in the `card-data/` directory, archiving the previous day's `card_data.json` with a timestamp, and deleting any archived files older than 8 days.
+
+    To run the update manually:
 
     ```bash
-    python scripts/parse_cards.py
+    python scripts/batch_update.py
     ```
+
+    For automated daily updates, set up a scheduled task (e.g., using Windows Task Scheduler or cron jobs on Linux) to run `scripts/batch_update.py` daily at 12 AM Eastern Time. Refer to the project documentation for detailed scheduling instructions.
 
 2.  **View the Page:**
 
