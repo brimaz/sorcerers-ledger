@@ -5,8 +5,6 @@ let allSetsCardDataByRarityName = {};
 let allOldSetsCardData = {};
 let isFoilPage = false;
 const RARITIES = ["Unique", "Elite", "Exceptional", "Ordinary"];
-const OLDEST_CARD_DATA_FILE = 'card-data/card_data_20251102_142933.json';
-
 const SET_ICONS = {
     "Alpha": "α",
     "Beta": "β",
@@ -501,7 +499,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-async function loadAndRenderCards() {
+async function loadAndRenderCards(OLDEST_CARD_DATA_FILE) {
     try {
         const response = await fetch('card-data/card_data.json');
         const data = await response.json();
@@ -594,7 +592,44 @@ async function loadAndRenderCards() {
     }
 }
 
-document.addEventListener('DOMContentLoaded', loadAndRenderCards);
+(async () => {
+    const OLDEST_CARD_DATA_FILE = await getOldestCardDataFile();
+    await loadAndRenderCards(OLDEST_CARD_DATA_FILE);
+})();
+
+async function getOldestCardDataFile() {
+  const cardDataDirectory = 'card-data';
+  const response = await fetch('/list-files?path=' + cardDataDirectory);
+  const files = await response.json();
+
+  let oldestTimestamp = null;
+  let oldestFile = null;
+
+  for (const file of files) {
+    const timestamp = extractTimestampFromFilename(file);
+    if (timestamp) {
+      if (!oldestTimestamp || timestamp < oldestTimestamp) {
+        oldestTimestamp = timestamp;
+        oldestFile = file;
+      }
+    }
+  }
+
+  if (oldestFile) {
+    return `${cardDataDirectory}/${oldestFile}`;
+  } else {
+    console.warn('No card data files found in', cardDataDirectory);
+    return null;
+  }
+}
+
+function extractTimestampFromFilename(filename) {
+  const match = filename.match(/card_data_(\d{8}_\d{6})\.json/);
+  if (match && match[1]) {
+    return match[1];
+  }
+  return null;
+}
 
 function getPriceFluctuation(currentCard, setName) {
     if (!allOldSetsCardData[setName]) {
