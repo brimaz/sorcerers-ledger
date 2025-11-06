@@ -2,8 +2,10 @@ let allSetsCardData = {};
 let allSetsCardDataByName = {};
 let allSetsCardDataByRarityPrice = {};
 let allSetsCardDataByRarityName = {};
+let allOldSetsCardData = {};
 let isFoilPage = false;
 const RARITIES = ["Unique", "Elite", "Exceptional", "Ordinary"];
+const OLDEST_CARD_DATA_FILE = 'card-data/card_data_20251102_142933.json';
 
 const SET_ICONS = {
     "Alpha": "α",
@@ -28,7 +30,7 @@ function getSortOption() {
     return document.getElementById('sort-select').value;
 }
 
-function getSortedData(setsData, setsDataByName, setsDataByRarityPrice, setsDataByRarityName, sortOption, isGrouped, isFiltered, isFilteredNmCondition) {
+function getSortedData(setsData, setsDataByName, setsDataByRarityPrice, setsDataByRarityName, sortOption, isGrouped, isFiltered, isFilteredNmCondition, isFilteredByPriceChange) {
     let processedData = {};
 
     if (isGrouped) {
@@ -73,8 +75,8 @@ function getSortedData(setsData, setsDataByName, setsDataByRarityPrice, setsData
                     filteredNmData[setName][rarity] = processedData[setName][rarity].filter(card => card.condition === nmCondition);
                 }
             }
-            return filteredNmData;
-        } else { // Changed from else if (isGrouped)
+            processedData = filteredNmData;
+        } else {
             const sortedByConditionData = {};
             const currentConditionOrder = isFoilPage ? FOIL_CONDITION_ORDER : NON_FOIL_CONDITION_ORDER;
             for (const setName in processedData) {
@@ -85,8 +87,9 @@ function getSortedData(setsData, setsDataByName, setsDataByRarityPrice, setsData
                     });
                 }
             }
-            return sortedByConditionData;
+            processedData = sortedByConditionData;
         }
+
         return processedData;
 
     } else {
@@ -121,7 +124,7 @@ function getSortedData(setsData, setsDataByName, setsDataByRarityPrice, setsData
             for (const setName in processedData) {
                 filteredNmData[setName] = processedData[setName].filter(card => card.condition === nmCondition);
             }
-            return filteredNmData;
+            processedData = filteredNmData;
         } else {
             const sortedByConditionData = {};
             const currentConditionOrder = isFoilPage ? FOIL_CONDITION_ORDER : NON_FOIL_CONDITION_ORDER;
@@ -130,8 +133,10 @@ function getSortedData(setsData, setsDataByName, setsDataByRarityPrice, setsData
                     return currentConditionOrder.indexOf(a.condition) - currentConditionOrder.indexOf(b.condition);
                 });
             }
-            return sortedByConditionData;
+            processedData = sortedByConditionData;
         }
+
+        return processedData;
     }
 }
 
@@ -141,9 +146,10 @@ function renderCards(sortOption) {
     const isGrouped = isGroupedByRarity();
     const isFiltered = isFilteredByValue();
     const isFilteredNmCondition = isFilteredByNmCondition();
+    const filterPriceChangeStatus = isFilteredByPriceChange();
 
-    const setsDataToRender = getSortedData(allSetsCardData, allSetsCardDataByName, allSetsCardDataByRarityPrice, allSetsCardDataByRarityName, sortOption, isGrouped, isFiltered, isFilteredNmCondition);
-    
+    const setsDataToRender = getSortedData(allSetsCardData, allSetsCardDataByName, allSetsCardDataByRarityPrice, allSetsCardDataByRarityName, sortOption, isGrouped, isFiltered, isFilteredNmCondition, filterPriceChangeStatus);
+
     for (const setName in setsDataToRender) {
         const cardColumn = document.createElement('div');
         cardColumn.className = 'card-column';
@@ -197,14 +203,18 @@ function renderCards(sortOption) {
                                         let cardHtml = '';
                                         const cardNameContent = `${card['name']} (${card['condition']})`;
 
+                                        const fluctuation = getPriceFluctuation(card, setName);
+                                        const fluctuationSpan = (!filterPriceChangeStatus || (filterPriceChangeStatus && Math.abs(fluctuation.priceChange) >= 1)) ? `<span class="price-fluctuation-${fluctuation.colorClass}">${fluctuation.arrow}</span>` : '';
+
+
                                         if (card['productID']) {
                                             const imageUrl = `https://tcgplayer-cdn.tcgplayer.com/product/${card['productID']}_in_1000x1000.jpg`;
                                             cardHtml = `
                                                 <span class="card-name">
-                                                    <a href="#" 
+                                                    <a href="#"
                                                        onmouseover="showImage(this, '${imageUrl}', isFoilPage);">
                                                         ${cardNameContent}
-                                                    </a>
+                                                    </a>${fluctuationSpan}
                                                 </span>
                                                 <span class="card-price">$${card['price']}</span>
                                             `;
@@ -212,32 +222,32 @@ function renderCards(sortOption) {
                                         else {
                                             cardHtml = `
                                                 <span class="card-name">
-                                                    <a href="#" 
+                                                    <a href="#"
                                                        onmouseover="showImage(this, '', isFoilPage);">
                                                         ${cardNameContent}
-                                                    </a>
+                                                    </a>${fluctuationSpan}
                                                 </span>
                                                 <span class="card-price">$${card['price']}</span>
                                             `;
                                         }
                                         listItem.innerHTML = cardHtml;
                                         const cardLink = listItem.querySelector('.card-name a');
-                                        
+
                                         if (isMobileOrTablet()) {
                                             const imageUrlForClick = card['productID'] ? `https://tcgplayer-cdn.tcgplayer.com/product/${card['productID']}_in_1000x1000.jpg` : '';
                                             cardLink.onclick = (event) => {
                                                 event.preventDefault();
                                                 const modalOverlay = document.getElementById('mobile-image-modal');
-                                            if (modalOverlay.style.display === 'flex') {
-                                                hideModalImage();
+                                                if (modalOverlay.style.display === 'flex') {
+                                                    hideModalImage();
                                                 } else {
-                                                showModalImage(imageUrlForClick, isFoilPage);
-                                            }
-                                        };
-                                    }
+                                                    showModalImage(imageUrlForClick, isFoilPage);
+                                                }
+                                            };
+                                        }
 
-                                    ul.appendChild(listItem);
-                                });
+                                        ul.appendChild(listItem);
+                                    });
                                 }
                             });
                         } else { // if isFilteredNmCondition is true
@@ -246,14 +256,18 @@ function renderCards(sortOption) {
                                 let cardHtml = '';
                                 const cardNameContent = `${card['name']} (${card['condition']})`;
 
+                                const fluctuation = getPriceFluctuation(card, setName);
+                                const fluctuationSpan = (!filterPriceChangeStatus || (filterPriceChangeStatus && Math.abs(fluctuation.priceChange) >= 1)) ? `<span class="price-fluctuation-${fluctuation.colorClass}">${fluctuation.arrow}</span>` : '';
+
+
                                 if (card['productID']) {
                                     const imageUrl = `https://tcgplayer-cdn.tcgplayer.com/product/${card['productID']}_in_1000x1000.jpg`;
                                     cardHtml = `
                                         <span class="card-name">
-                                            <a href="#" 
+                                            <a href="#"
                                                onmouseover="showImage(this, '${imageUrl}', isFoilPage);">
                                                 ${cardNameContent}
-                                            </a>
+                                            </a>${fluctuationSpan}
                                         </span>
                                         <span class="card-price">$${card['price']}</span>
                                     `;
@@ -261,31 +275,32 @@ function renderCards(sortOption) {
                                 else {
                                     cardHtml = `
                                         <span class="card-name">
-                                            <a href="#" 
+                                            <a href="#"
                                                onmouseover="showImage(this, '', isFoilPage);">
                                                 ${cardNameContent}
-                                            </a>
+                                            </a>${fluctuationSpan}
                                         </span>
                                         <span class="card-price">$${card['price']}</span>
                                     `;
                                 }
                                 listItem.innerHTML = cardHtml;
                                 const cardLink = listItem.querySelector('.card-name a');
-                                
+
                                 if (isMobileOrTablet()) {
                                     const imageUrlForClick = card['productID'] ? `https://tcgplayer-cdn.tcgplayer.com/product/${card['productID']}_in_1000x1000.jpg` : '';
                                     cardLink.onclick = (event) => {
                                         event.preventDefault();
                                         const modalOverlay = document.getElementById('mobile-image-modal');
-                                    if (modalOverlay.style.display === 'flex') {
-                                        hideModalImage();
+                                        if (modalOverlay.style.display === 'flex') {
+                                            hideModalImage();
                                         } else {
-                                        showModalImage(imageUrlForClick, isFoilPage);
-                                    }
-                                };
-                            }
-                            ul.appendChild(listItem);
-                        });
+                                            showModalImage(imageUrlForClick, isFoilPage);
+                                        }
+                                    };
+                                }
+
+                                ul.appendChild(listItem);
+                            });
                         }
                     }
                 });
@@ -319,46 +334,50 @@ function renderCards(sortOption) {
                                 let cardHtml = '';
                                 const cardNameContent = `${card['name']} (${card['condition']})`;
 
+                                const fluctuation = getPriceFluctuation(card, setName);
+                                const fluctuationSpan = (!filterPriceChangeStatus || (filterPriceChangeStatus && Math.abs(fluctuation.priceChange) >= 1)) ? `<span class="price-fluctuation-${fluctuation.colorClass}">${fluctuation.arrow}</span>` : '';
+
+
                                 if (card['productID']) {
                                     const imageUrl = `https://tcgplayer-cdn.tcgplayer.com/product/${card['productID']}_in_1000x1000.jpg`;
                                     cardHtml = `
-                                        <span class="card-name">
-                                            <a href="#" 
-                                               onmouseover="showImage(this, '${imageUrl}', isFoilPage);">
-                                                ${cardNameContent}
-                                            </a>
-                                        </span>
-                                        <span class="card-price">$${card['price']}</span>
-                                    `;
+                                                <span class="card-name">
+                                                    <a href="#"
+                                                       onmouseover="showImage(this, '${imageUrl}', isFoilPage);">
+                                                        ${cardNameContent}
+                                                    </a>${fluctuationSpan}
+                                                </span>
+                                                <span class="card-price">$${card['price']}</span>
+                                            `;
                                 } else {
                                     cardHtml = `
-                                        <span class="card-name">
-                                            <a href="#" 
-                                               onmouseover="showImage(this, '', isFoilPage);">
-                                                ${cardNameContent}
-                                            </a>
-                                        </span>
-                                        <span class="card-price">$${card['price']}</span>
-                                    `;
+                                                <span class="card-name">
+                                                    <a href="#"
+                                                       onmouseover="showImage(this, '', isFoilPage);">
+                                                        ${cardNameContent}
+                                                    </a>${fluctuationSpan}
+                                                </span>
+                                                <span class="card-price">$${card['price']}</span>
+                                            `;
                                 }
                                 listItem.innerHTML = cardHtml;
                                 const cardLink = listItem.querySelector('.card-name a');
-                                
+
                                 if (isMobileOrTablet()) {
                                     const imageUrlForClick = card['productID'] ? `https://tcgplayer-cdn.tcgplayer.com/product/${card['productID']}_in_1000x1000.jpg` : '';
                                     cardLink.onclick = (event) => {
                                         event.preventDefault();
                                         const modalOverlay = document.getElementById('mobile-image-modal');
-                                    if (modalOverlay.style.display === 'flex') {
-                                        hideModalImage();
+                                        if (modalOverlay.style.display === 'flex') {
+                                            hideModalImage();
                                         } else {
-                                        showModalImage(imageUrlForClick, isFoilPage);
-                                    }
-                                };
-                            }
+                                            showModalImage(imageUrlForClick, isFoilPage);
+                                        }
+                                    };
+                                }
 
-                            ul.appendChild(listItem);
-                        });
+                                ul.appendChild(listItem);
+                            });
                         }
                     });
                 } else {
@@ -368,45 +387,50 @@ function renderCards(sortOption) {
                         let cardHtml = '';
                         const cardNameContent = `${card['name']} (${card['condition']})`;
 
+                        const fluctuation = getPriceFluctuation(card, setName);
+                        const fluctuationSpan = (!filterPriceChangeStatus || (filterPriceChangeStatus && Math.abs(fluctuation.priceChange) >= 1)) ? `<span class="price-fluctuation-${fluctuation.colorClass}">${fluctuation.arrow}</span>` : '';
+
+
                         if (card['productID']) {
                             const imageUrl = `https://tcgplayer-cdn.tcgplayer.com/product/${card['productID']}_in_1000x1000.jpg`;
                             cardHtml = `
                                 <span class="card-name">
-                                    <a href="#" 
+                                    <a href="#"
                                        onmouseover="showImage(this, '${imageUrl}', isFoilPage);">
                                         ${cardNameContent}
-                                    </a>
+                                    </a>${fluctuationSpan}
                                 </span>
                                 <span class="card-price">$${card['price']}</span>
                             `;
                         } else {
                             cardHtml = `
                                 <span class="card-name">
-                                    <a href="#" 
+                                    <a href="#"
                                        onmouseover="showImage(this, '', isFoilPage);">
                                         ${cardNameContent}
-                                    </a>
+                                    </a>${fluctuationSpan}
                                 </span>
                                 <span class="card-price">$${card['price']}</span>
                             `;
                         }
                         listItem.innerHTML = cardHtml;
                         const cardLink = listItem.querySelector('.card-name a');
-                        
+
                         if (isMobileOrTablet()) {
                             const imageUrlForClick = card['productID'] ? `https://tcgplayer-cdn.tcgplayer.com/product/${card['productID']}_in_1000x1000.jpg` : '';
                             cardLink.onclick = (event) => {
                                 event.preventDefault();
                                 const modalOverlay = document.getElementById('mobile-image-modal');
-                            if (modalOverlay.style.display === 'flex') {
-                                hideModalImage();
+                                if (modalOverlay.style.display === 'flex') {
+                                    hideModalImage();
                                 } else {
-                                showModalImage(imageUrlForClick, isFoilPage);
-                            }
-                        };
-                    }
-                    ul.appendChild(listItem);
-                });
+                                    showModalImage(imageUrlForClick, isFoilPage);
+                                }
+                            };
+                        }
+
+                        ul.appendChild(listItem);
+                    });
                 }
             }
         }
@@ -421,6 +445,7 @@ function navigateToSort() {
     url.searchParams.set('groupRarity', isGroupedByRarity());
     url.searchParams.set('filterValue', isFilteredByValue());
     url.searchParams.set('filterNmCondition', isFilteredByNmCondition());
+    url.searchParams.set('filterPriceChange', isFilteredByPriceChange());
     window.history.pushState({}, '', url);
     renderCards(sortOption);
 }
@@ -452,6 +477,15 @@ function handleNmConditionFilterChange() {
     navigateToSort();
 }
 
+function isFilteredByPriceChange() {
+    const checkbox = document.getElementById('filter-by-price-change');
+    return checkbox ? checkbox.checked : false;
+}
+
+function handlePriceChangeFilterChange() {
+    navigateToSort();
+}
+
 
 document.addEventListener('DOMContentLoaded', () => {
     const modalCloseButton = document.getElementById('modal-close');
@@ -471,6 +505,9 @@ async function loadAndRenderCards() {
     try {
         const response = await fetch('card-data/card_data.json');
         const data = await response.json();
+
+        const oldResponse = await fetch(OLDEST_CARD_DATA_FILE);
+        const oldData = await oldResponse.json();
 
         const urlParams = new URLSearchParams(window.location.search);
         const viewParam = urlParams.get('view');
@@ -500,16 +537,22 @@ async function loadAndRenderCards() {
             allSetsCardDataByRarityName[setName] = isFoilPage ? data[setName].foilByRarityName : data[setName].nonFoilByRarityName;
         }
 
+        for (const setName in oldData) {
+            allOldSetsCardData[setName] = isFoilPage ? oldData[setName].foil : oldData[setName].nonFoil;
+        }
+
         const sortParam = urlParams.get('sort');
         const groupRarityParam = urlParams.get('groupRarity');
         const filterValueParam = urlParams.get('filterValue');
         const filterNmConditionParam = urlParams.get('filterNmCondition');
+        const filterPriceChangeParam = urlParams.get('filterPriceChange');
 
         if (groupRarityParam === 'true') {
             document.getElementById('group-by-rarity').checked = true;
         } else if (groupRarityParam === null) {
             document.getElementById('group-by-rarity').checked = true;
-        }else {
+        }
+        else {
             document.getElementById('group-by-rarity').checked = false;
         }
 
@@ -517,7 +560,8 @@ async function loadAndRenderCards() {
             document.getElementById('filter-by-value').checked = true;
         } else if (filterValueParam === null) {
             document.getElementById('filter-by-value').checked = true;
-        } else {
+        }
+        else {
             document.getElementById('filter-by-value').checked = false;
         }
 
@@ -525,8 +569,18 @@ async function loadAndRenderCards() {
             document.getElementById('filter-by-nm-condition').checked = true;
         } else if (filterNmConditionParam === null) {
             document.getElementById('filter-by-nm-condition').checked = true;
-        } else {
+        }
+        else {
             document.getElementById('filter-by-nm-condition').checked = false;
+        }
+
+        if (filterPriceChangeParam === 'true') {
+            document.getElementById('filter-by-price-change').checked = true;
+        } else if (filterPriceChangeParam === null) {
+            document.getElementById('filter-by-price-change').checked = true;
+        }
+        else {
+            document.getElementById('filter-by-price-change').checked = false;
         }
 
         if (sortParam) {
@@ -541,3 +595,24 @@ async function loadAndRenderCards() {
 }
 
 document.addEventListener('DOMContentLoaded', loadAndRenderCards);
+
+function getPriceFluctuation(currentCard, setName) {
+    if (!allOldSetsCardData[setName]) {
+        return { arrow: '', colorClass: '', priceChange: 0 };
+    }
+
+    const oldCardDataForSet = allOldSetsCardData[setName];
+    const oldCard = oldCardDataForSet.find(card => card.name === currentCard.name && card.condition === currentCard.condition);
+
+    if (oldCard) {
+        const currentPrice = parseFloat(currentCard.price.replace(',', ''));
+        const oldPrice = parseFloat(oldCard.price.replace(',', ''));
+
+        if (currentPrice > oldPrice) {
+            return { arrow: '▲', colorClass: 'price-up', priceChange: currentPrice - oldPrice };
+        } else if (currentPrice < oldPrice) {
+            return { arrow: '▼', colorClass: 'price-down', priceChange: oldPrice - currentPrice };
+        }
+    }
+    return { arrow: '', colorClass: '', priceChange: 0 };
+}

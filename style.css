@@ -266,3 +266,12 @@ nav a.active {
 nav a:not(.active) {
     color: #007bff;
 }
+
+/* Price Fluctuation Indicators */
+.card-name .price-fluctuation-price-up {
+    color: green;
+}
+
+.card-name .price-fluctuation-price-down {
+    color: red;
+}
