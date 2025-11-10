@@ -12,10 +12,13 @@ This project fetches Sorcery: Contested Realm card data from the TCGplayer API a
 │   └── {card data json files}
 ├── index.html
 ├── scripts/
+│   ├── app.js
 │   ├── batch_update.py
-│   ├── hover.js
+│   ├── components/
+│   │   ├── CardDisplay.js
+│   │   ├── CardItem.js
+│   │   └── ImageModal.js
 │   ├── parse_cards.py
-│   └── script.js
 ├── style.css
 ├── README.md
 ├── requirements.txt
@@ -45,4 +48,4 @@ pip install -r requirements.txt
 
 2.  **View the Page:**
 
-    Open `index.html` in your web browser. This single page dynamically displays both non-foil and foil card overviews, with options to sort and filter. The CSS for styling is in `style.css`, and the interactive logic is in `scripts/script.js` and `scripts/hover.js`.
+    Open `index.html` in your web browser. This single page dynamically displays both non-foil and foil card overviews, with options to sort and filter. The interactive logic is handled by the Vue application initialized in `scripts/app.js` and its components in `scripts/components/`. The CSS for styling is in `style.css`.
