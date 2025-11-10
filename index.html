@@ -5,30 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title></title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
 </head>
 <body>
-    <nav>
-        <a href="index.html?view=nonfoil" class="{% if current_page == 'nonfoil_overview' %}active{% endif %}">Non-Foil Overview</a>
-        <a href="index.html?view=foil" class="{% if current_page == 'foil_overview' %}active{% endif %}">Foil Overview</a>
-    </nav>
-    <h1></h1>
-    
-    <div class="sort-controls">
-        <label for="sort-select">Sort by:</label>
-        <select id="sort-select" onchange="navigateToSort()">
-            <option value="price-asc">Price (Low to High)</option>
-            <option value="price-desc" selected>Price (High to Low)</option>
-            <option value="name-asc">Name (A to Z)</option>
-            <option value="name-desc">Name (Z to A)</option>
-        </select>
-        <label for="group-by-rarity">Group by Rarity:<input type="checkbox" id="group-by-rarity" onchange="handleRarityGroupChange()"></label>
-        <label for="filter-by-value">Show Only High Value Cards:<input type="checkbox" id="filter-by-value" onchange="handleValueFilterChange()"></label>
-        <label for="filter-by-nm-condition">Show Only NM Condition:<input type="checkbox" id="filter-by-nm-condition" onchange="handleNmConditionFilterChange()"></label>
-        <label for="filter-by-price-change">Price Changes >= $1 (Last Week):<input type="checkbox" id="filter-by-price-change" onchange="handlePriceChangeFilterChange()" checked></label>
-    </div>
-    
-    <div class="card-columns">
-        
+    <div id="app">
     </div>
     
     <div id="mobile-image-modal" class="modal-overlay">
@@ -38,8 +18,6 @@
             <div class="modal-no-image-text">Card Image Not Available</div>
         </div>
     </div>
-
-    <script src="scripts/script.js"></script>
-    <script src="scripts/hover.js"></script>
+    <script src="scripts/app.js" type="module"></script>
 </body>
 </html>

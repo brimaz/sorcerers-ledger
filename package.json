@@ -1,7 +1,7 @@
 {
   "name": "sorcerers-ledger",
   "version": "1.0.0",
-  "description": "",
+  "description": "This project fetches Sorcery: Contested Realm card data from the TCGplayer API and generates a dynamic HTML page to display card prices with hover-over image functionality. The project follows a more organized structure with separate files for CSS and JavaScript, and dedicated directories for data and scripts.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -10,6 +10,15 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "express": "^4.19.2"
-  }
+    "express": "^4.19.2",
+    "vue": "^3.5.24"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/brimaz/sorcerers-ledger.git"
+  },
+  "bugs": {
+    "url": "https://github.com/brimaz/sorcerers-ledger/issues"
+  },
+  "homepage": "https://github.com/brimaz/sorcerers-ledger#readme"
 }
