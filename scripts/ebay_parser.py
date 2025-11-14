@@ -2,6 +2,7 @@ import json
 import os
 import requests
 import time
+import unicodedata
 from datetime import datetime, timedelta
 from config import EBAY_BUY_API_ENDPOINT
 
@@ -33,6 +34,31 @@ GRADED_KEYWORDS = [
     "psa 10", "psa 9", "psa 8", "bgs 10", "bgs 9", "bgs 8",
     "cgc 10", "cgc 9", "cgc 8", "graded", "slab", "slabbed"
 ]
+
+def normalize_to_american_english(text: str) -> str:
+    """
+    Convert non-American English characters to their American English equivalents.
+    Examples: ï -> i, Ä -> A, é -> e, etc.
+    
+    Args:
+        text: Input string that may contain non-ASCII characters
+        
+    Returns:
+        String with characters normalized to American English equivalents
+    """
+    if not text:
+        return text
+    
+    # Normalize to NFD (decomposed form) which separates base characters from diacritics
+    # Then remove combining diacritical marks
+    normalized = unicodedata.normalize('NFD', text)
+    # Filter out combining marks (characters with category 'Mn' - Mark, nonspacing)
+    ascii_text = ''.join(
+        char for char in normalized 
+        if unicodedata.category(char) != 'Mn'
+    )
+    # Normalize back to NFC (composed form) for consistency
+    return unicodedata.normalize('NFC', ascii_text)
 
 def _wait_for_rate_limit():
     """Wait to maintain rate limit between API calls."""
@@ -435,6 +461,7 @@ def generate_card_data_json(output_file_path: str, test_mode: bool = True, test_
         for set_details in card_info["sets"]:
             set_name = set_details["set_name"]
             rarity_from_master = set_details["rarity"]
+            slug = set_details.get("slug")
             
             # Test mode filter for set
             if test_mode and set_name != test_set_name:
@@ -456,13 +483,17 @@ def generate_card_data_json(output_file_path: str, test_mode: bool = True, test_
 
             # --- Fetch Sold Data (Buy API with itemSoldFilter) - Separate queries for foil and non-foil ---
             # Simplified query - just card name and set, let the API do the matching
+            # Normalize card name and set name for American English keyboard compatibility
+            normalized_card_name = normalize_to_american_english(card_name)
+            normalized_set_name = normalize_to_american_english(set_name)
+            
             # Non-foil sold query
-            search_query_sold_nonfoil = f"Sorcery {card_name} {set_name} -foil"
+            search_query_sold_nonfoil = f"Sorcery {normalized_card_name} {normalized_set_name} -foil"
             print(f"Fetching sold NON-FOIL data for {card_name} in {set_name} (Rarity: {rarity_from_master})...")
             raw_sold_items_nonfoil = fetch_sold_ebay_card_data(search_query_sold_nonfoil)
             
             # Foil sold query
-            search_query_sold_foil = f"Sorcery {card_name} {set_name} foil"
+            search_query_sold_foil = f"Sorcery {normalized_card_name} {normalized_set_name} foil"
             print(f"Fetching sold FOIL data for {card_name} in {set_name} (Rarity: {rarity_from_master})...")
             raw_sold_items_foil = fetch_sold_ebay_card_data(search_query_sold_foil)
             
@@ -503,13 +534,14 @@ def generate_card_data_json(output_file_path: str, test_mode: bool = True, test_
 
             # --- Fetch Current Data (Buy API) - Separate queries for foil and non-foil ---
             # Simplified query - just card name and set
+            # Use normalized names (already computed above)
             # Non-foil current query
-            search_query_current_nonfoil = f"Sorcery {card_name} {set_name} -foil"
+            search_query_current_nonfoil = f"Sorcery {normalized_card_name} {normalized_set_name} -foil"
             print(f"Fetching current NON-FOIL data for {card_name} in {set_name} (Rarity: {rarity_from_master})...") 
             raw_current_items_nonfoil = fetch_current_ebay_card_data(search_query_current_nonfoil)
 
             # Foil current query
-            search_query_current_foil = f"Sorcery {card_name} {set_name} foil"
+            search_query_current_foil = f"Sorcery {normalized_card_name} {normalized_set_name} foil"
             print(f"Fetching current FOIL data for {card_name} in {set_name} (Rarity: {rarity_from_master})...") 
             raw_current_items_foil = fetch_current_ebay_card_data(search_query_current_foil)
 
@@ -590,6 +622,8 @@ def generate_card_data_json(output_file_path: str, test_mode: bool = True, test_
                 "avgCurrentPrice": f"{avg_current_price_nonfoil:.2f}",
                 "condition": condition_nonfoil,
                 "rarity": rarity_from_master,
+                "slug": slug,
+                "set_name": set_name,
             }
 
             # Create foil card info
@@ -600,6 +634,8 @@ def generate_card_data_json(output_file_path: str, test_mode: bool = True, test_
                 "avgCurrentPrice": f"{avg_current_price_foil:.2f}",
                 "condition": condition_foil,
                 "rarity": rarity_from_master,
+                "slug": slug,
+                "set_name": set_name,
             }
 
             # Add to appropriate lists

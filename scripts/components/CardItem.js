@@ -20,12 +20,26 @@ export const CardItem = {
         </a>
         <span v-if="showFluctuation" :class="'price-fluctuation-' + fluctuation.colorClass">{{ fluctuation.arrow }}</span>
       </span>
-      <span class="card-price">$ {{ card.price }}</span>
+      <span class="card-price">{{ displayPrice }}</span>
     </li>
   `,
   computed: {
+    displayPrice() {
+      const price = parseFloat(this.card.price);
+      if (price === 0 || isNaN(price)) {
+        return 'N/A';
+      }
+      return `$ ${this.card.price}`;
+    },
     imageUrl() {
-      return this.card.productID ? `https://tcgplayer-cdn.tcgplayer.com/product/${this.card.productID}_in_1000x1000.jpg` : '';
+      // Use local image based on slug
+      if (this.card.slug && this.card.set_name) {
+        const variant = this.isFoilPage ? 'b_f' : 'b_s';
+        const imagePath = `card-data/images/${this.card.set_name}/${variant}/${this.card.slug}_${variant}.png`;
+        return imagePath;
+      }
+      // Return null if image is not available
+      return null;
     },
     fluctuation() {
       return this.getPriceFluctuation(this.card, this.setName);
@@ -57,8 +71,8 @@ export const CardItem = {
     },
     handleCardClick() {
       if (this.isMobileOrTablet()) {
-          const imageUrlForClick = this.card.productID ? `https://tcgplayer-cdn.tcgplayer.com/product/${this.card.productID}_in_1000x1000.jpg` : '';
-          this.showMobileModal(imageUrlForClick, this.isFoilPage);
+          // Use the same imageUrl computed property for mobile modal
+          this.showMobileModal(this.imageUrl, this.isFoilPage);
       }
     },
     isMobileOrTablet() {

@@ -35,10 +35,12 @@ createApp({
       isGrouped: true, // Default
       isFiltered: true, // Default
       filterPriceChangeStatus: true, // Default
-      mobileModalImageUrl: '',
+      mobileModalImageUrl: null,
       isMobileModalVisible: false,
-      hoverImageUrl: '',
+      hoverImageUrl: null,
       hoverImagePosition: { top: 0, left: 0 },
+      showImageError: false,
+      showModalImageError: false,
     }
   },
   async mounted() {
@@ -204,7 +206,11 @@ createApp({
                   filteredData[setName] = {};
                   for (const rarity in processedData[setName]) {
                       const threshold = this.RARITY_PRICE_THRESHOLDS[rarity];
-                      filteredData[setName][rarity] = processedData[setName][rarity].filter(card => parseFloat(card.price.replace(',', '')) > threshold);
+                      filteredData[setName][rarity] = processedData[setName][rarity].filter(card => {
+                          const price = parseFloat(card.price.replace(',', ''));
+                          // Include cards with zero/N/A price since we don't know if they're high value
+                          return price === 0 || isNaN(price) || price > threshold;
+                      });
                   }
               }
               processedData = filteredData;
@@ -232,7 +238,9 @@ createApp({
               for (const setName in processedData) {
                   filteredData[setName] = processedData[setName].filter(card => {
                       const threshold = this.RARITY_PRICE_THRESHOLDS[card.rarity];
-                      return parseFloat(card.price.replace(',', '')) > threshold;
+                      const price = parseFloat(card.price.replace(',', ''));
+                      // Include cards with zero/N/A price since we don't know if they're high value
+                      return price === 0 || isNaN(price) || price > threshold;
                   });
               }
               processedData = filteredData;
@@ -261,20 +269,35 @@ createApp({
             top: rect.bottom + window.scrollY + 5,
             left: rect.left + window.scrollX,
         };
+        // Set imageUrl (can be null if image not available)
         this.hoverImageUrl = imageUrl;
         this.isFoilPage = isFoilPage;
+        this.showImageError = false; // Reset error state when showing new image
     },
     hideHoverImage() {
-        this.hoverImageUrl = '';
+        this.hoverImageUrl = null;
+        this.showImageError = false;
+    },
+    handleImageError(event) {
+        // If image fails to load, show "Image Not Available" text
+        this.showImageError = true;
+        event.target.style.display = 'none';
     },
     showMobileModal(imageUrl, isFoilPage) {
         this.mobileModalImageUrl = imageUrl;
         this.isFoilPage = isFoilPage;
         this.isMobileModalVisible = true;
+        this.showModalImageError = false; // Reset error state when showing new modal
     },
     hideMobileModal() {
         this.isMobileModalVisible = false;
-        this.mobileModalImageUrl = '';
+        this.mobileModalImageUrl = null;
+        this.showModalImageError = false;
+    },
+    handleModalImageError(event) {
+        // If image fails to load in modal, show "Image Not Available" text
+        this.showModalImageError = true;
+        event.target.style.display = 'none';
     },
     setFoilPage(isFoil) {
         this.isFoilPage = isFoil;
@@ -324,7 +347,48 @@ createApp({
             :isGrouped="isGrouped"
             :showHoverImage="showHoverImage.bind(this)"
             :hideHoverImage="hideHoverImage.bind(this)"
+            :showMobileModal="showMobileModal.bind(this)"
         />
+
+        <div v-if="hoverImageUrl !== null" 
+             class="hover-image show-hover-image"
+             :style="{ top: hoverImagePosition.top + 'px', left: hoverImagePosition.left + 'px' }">
+            <div v-if="hoverImageUrl && isFoilPage" class="foil-image-wrapper">
+                <img :src="hoverImageUrl" 
+                     alt="Card Image"
+                     @error="handleImageError">
+            </div>
+            <img v-else-if="hoverImageUrl" 
+                 :src="hoverImageUrl" 
+                 alt="Card Image"
+                 @error="handleImageError">
+            <div v-if="!hoverImageUrl || showImageError" class="hover-image-text">Image Not Available</div>
+        </div>
+
+        <div v-if="isMobileModalVisible" 
+             id="mobile-image-modal" 
+             class="modal-overlay"
+             @click="hideMobileModal">
+            <div class="modal-content" @click.stop>
+                <button class="modal-close-button" @click="hideMobileModal">
+                    <img src="assets/sl-modal-close.png" alt="Close">
+                </button>
+                <div v-if="mobileModalImageUrl && isFoilPage" class="foil-image-wrapper">
+                    <img :src="mobileModalImageUrl" 
+                         alt="Card Image Not Available" 
+                         class="modal-image" 
+                         @error="handleModalImageError"
+                         oncontextmenu="return false;">
+                </div>
+                <img v-else-if="mobileModalImageUrl" 
+                     :src="mobileModalImageUrl" 
+                     alt="Card Image Not Available" 
+                     class="modal-image" 
+                     @error="handleModalImageError"
+                     oncontextmenu="return false;">
+                <div v-if="!mobileModalImageUrl || showModalImageError" class="modal-no-image-text">Image Not Available</div>
+            </div>
+        </div>
 
     </div>
   `,

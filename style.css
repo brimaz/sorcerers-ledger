@@ -144,6 +144,8 @@ li:last-child {
     max-width: 100%;
     height: auto;
     display: block;
+    border-radius: 12px;
+    object-fit: cover;
 }
 .hover-image-text {
     padding: 10px;
@@ -154,8 +156,55 @@ li:last-child {
     background-color: #000;
     border-radius: 5px;
 }
-.foil-sheen {
-    box-shadow: 0 0 15px 5px rgba(255, 215, 0, 0.6);
+.foil-image-wrapper {
+    border-radius: 12px;
+    overflow: hidden;
+    display: inline-block;
+    padding: 0;
+    margin: 0;
+    line-height: 0;
+    position: relative;
+    z-index: 0;
+}
+
+/* Animated shimmer effect using pseudo-element */
+.foil-image-wrapper::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -200%;
+    width: 100%;
+    height: 100%;
+    border-radius: 12px;
+    pointer-events: none; /* Don't interfere with interactions */
+    z-index: 1; /* Above the image */
+    
+    /* Create a bright, narrow, golden streak gradient */
+    background: linear-gradient(
+        90deg, 
+        transparent 0%, 
+        rgba(255, 255, 255, 0.1) 50%, /* A subtle inner white glow */
+        rgba(255, 221, 0, 0.5) 60%, /* The bright gold core of the sheen */
+        transparent 100%
+    );
+    
+    animation: shimmer 2s infinite linear;
+}
+
+/* Keyframe animation for the shimmer effect */
+@keyframes shimmer {
+    to {
+        left: 200%; /* Move the shimmer streak far off the right edge */
+    }
+}
+
+.foil-image-wrapper img {
+    display: block;
+    border-radius: 12px;
+    max-width: 100%;
+    height: auto;
+    margin: 0;
+    padding: 0;
 }
 .card-columns {
     display: grid;
@@ -198,7 +247,7 @@ li:last-child {
 }
 
 .modal-overlay {
-    display: none;
+    display: flex;
     position: fixed;
     top: 0;
     left: 0;
@@ -231,6 +280,7 @@ li:last-child {
     background: none;
     border: none;
     padding: 0;
+    z-index: 10; /* Ensure close button is above the foil wrapper */
 }
 
 .modal-close-button img {
@@ -246,6 +296,7 @@ li:last-child {
     object-fit: contain;
     display: block;
     margin: 0 auto;
+    border-radius: 12px;
 }
 
 .modal-no-image-text {

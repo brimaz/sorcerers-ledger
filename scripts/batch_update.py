@@ -9,7 +9,7 @@ from ebay_auth import get_application_access_token
 # --- Configuration ---
 TOKEN_FILE = "ebay_token.json"
 CACHE_DURATION_HOURS = 24 # How long to consider card_data.json fresh
-TEST_MODE = True # Set to True to only process "Philosopher's Stone" from "Alpha" set for testing
+TEST_MODE = False # Set to True to only process "Philosopher's Stone" from "Alpha" set for testing
 TEST_CARD_NAME = "Philosopher's Stone"
 TEST_SET_NAME = "Alpha"
 
@@ -112,48 +112,42 @@ def main():
     # Set as environment variable for ebay_parser.py
     os.environ["EBAY_ACCESS_TOKEN"] = ebay_access_token
 
-    # 3. Check if card_data.json exists and is fresh
+    # 3. Prepare for card data generation (resume logic will handle skipping complete cards)
     output_file = "card-data/card_data.json"
-    should_update = True
-
+    
     if os.path.exists(output_file):
         modified_time = datetime.fromtimestamp(os.path.getmtime(output_file))
-        if datetime.now() - modified_time < timedelta(hours=CACHE_DURATION_HOURS):
-            print(f"Card data is fresh (last updated {modified_time.strftime('%Y-%m-%d %H:%M:%S')}). Skipping full update.")
-            should_update = False
-        else:
-            print(f"Card data is stale (last updated {modified_time.strftime('%Y-%m-%d %H:%M:%S')}). Performing full update.")
+        print(f"Found existing card_data.json (last updated {modified_time.strftime('%Y-%m-%d %H:%M:%S')}). Will resume from existing data.")
     else:
-        print("card_data.json not found. Performing full update.")
-
-    if should_update:
-        # 4. Archive existing card_data.json only if it's from a previous day
-        # (Don't archive if resuming same-day run)
-        card_data_dir = "card-data"
+        print("card_data.json not found. Starting fresh update.")
+    
+    # 4. Archive existing card_data.json only if it's from a previous day
+    # (Don't archive if resuming same-day run)
+    card_data_dir = "card-data"
+    
+    if os.path.exists(output_file):
+        modified_time = datetime.fromtimestamp(os.path.getmtime(output_file))
+        today = datetime.now().date()
+        file_date = modified_time.date()
         
-        if os.path.exists(output_file):
-            modified_time = datetime.fromtimestamp(os.path.getmtime(output_file))
-            today = datetime.now().date()
-            file_date = modified_time.date()
+        # Only archive if file is from a previous day
+        if file_date < today:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            archive_file = f"{card_data_dir}/card_data_{timestamp}.json"
             
-            # Only archive if file is from a previous day
-            if file_date < today:
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                archive_file = f"{card_data_dir}/card_data_{timestamp}.json"
-                
-                # Rename current file to archived name
-                os.rename(output_file, archive_file)
-                print(f"Archived previous day's card_data.json to {archive_file}")
-            else:
-                print(f"Resuming from existing card_data.json (same day, last updated {modified_time.strftime('%Y-%m-%d %H:%M:%S')})")
-        
-        # 5. Generate card data from eBay (will resume if file exists)
-        print("Starting eBay card data parsing...")
-        generate_card_data_json(output_file, test_mode=TEST_MODE, test_card_name=TEST_CARD_NAME, test_set_name=TEST_SET_NAME)
-        print("eBay card data parsing complete.")
-        
-        # 6. Clean up old archived files (older than 8 days)
-        cleanup_old_archives(card_data_dir, days_to_keep=8)
+            # Rename current file to archived name
+            os.rename(output_file, archive_file)
+            print(f"Archived previous day's card_data.json to {archive_file}")
+        else:
+            print(f"Resuming from existing card_data.json (same day, last updated {modified_time.strftime('%Y-%m-%d %H:%M:%S')})")
+    
+    # 5. Generate card data from eBay (will resume if file exists)
+    print("Starting eBay card data parsing...")
+    generate_card_data_json(output_file, test_mode=TEST_MODE, test_card_name=TEST_CARD_NAME, test_set_name=TEST_SET_NAME)
+    print("eBay card data parsing complete.")
+    
+    # 6. Clean up old archived files (older than 8 days)
+    cleanup_old_archives(card_data_dir, days_to_keep=8)
     
     # Clean up environment variable
     del os.environ["EBAY_ACCESS_TOKEN"]

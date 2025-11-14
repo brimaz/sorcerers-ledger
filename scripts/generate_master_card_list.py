@@ -29,11 +29,48 @@ def generate_master_card_list(output_file_path="card-data/sorcery_card_list.json
         for card_set in card.get("sets", []):
             set_name = card_set.get("name")
             rarity = card_set.get("metadata", {}).get("rarity")
+            
+            # Extract slug from variants array
+            # Look for the "b_s" (Standard Booster) variant first, fallback to "b_f" (Foil Booster)
+            slug = None
+            variants = card_set.get("variants", [])
+            
+            # Try to find b_s variant first (non-foil)
+            for variant in variants:
+                variant_slug = variant.get("slug", "")
+                if variant_slug.endswith("_b_s"):
+                    slug = variant_slug
+                    break
+            
+            # If no b_s found, try b_f (foil)
+            if not slug:
+                for variant in variants:
+                    variant_slug = variant.get("slug", "")
+                    if variant_slug.endswith("_b_f"):
+                        slug = variant_slug
+                        break
+            
+            # If we found a slug, extract just the card name part
+            # Format is: {set_prefix}_{card_name}_{variant}
+            # We want: {card_name}
+            if slug:
+                # Remove set prefix (alp_, bet_, etc.) and variant suffix (_b_s, _b_f, etc.)
+                # Set prefixes are typically 3-4 characters followed by underscore
+                parts = slug.split("_")
+                if len(parts) >= 3:
+                    # Remove first part (set prefix) and last two parts (variant like "b", "s")
+                    # Join the middle parts to get card name
+                    card_name_parts = parts[1:-2]
+                    slug = "_".join(card_name_parts) if card_name_parts else None
+                else:
+                    slug = None
+            
             # We are interested in both foil and non-foil variants
             # For now, we will add a generic entry for each set/rarity combo
             master_card_list[card_name]["sets"].append({
                 "set_name": set_name,
                 "rarity": rarity,
+                "slug": slug,
             })
             
     with open(output_file_path, 'w', encoding='utf-8') as f:
