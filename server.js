@@ -1,9 +1,10 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
+const { SERVER_PORT } = require('./config.js');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || SERVER_PORT;
 
 // Serve static files from the root directory
 app.use(express.static(path.join(__dirname)));

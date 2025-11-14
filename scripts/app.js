@@ -1,14 +1,11 @@
 const { createApp } = Vue
 import { CardDisplay } from './components/CardDisplay.js';
 import { CardItem } from './components/CardItem.js';
-import { ImageModal, HoverImage } from './components/ImageModal.js';
 
 createApp({
   components: {
     CardDisplay,
     CardItem,
-    ImageModal,
-    HoverImage,
   },
   data() {
     return {
@@ -62,8 +59,19 @@ createApp({
             const response = await fetch('card-data/card_data.json');
             const data = await response.json();
 
-            const oldResponse = await fetch(OLDEST_CARD_DATA_FILE);
-            const oldData = await oldResponse.json();
+            // Only fetch old data if an archived file exists
+            let oldData = {};
+            if (OLDEST_CARD_DATA_FILE) {
+                try {
+                    const oldResponse = await fetch(OLDEST_CARD_DATA_FILE);
+                    oldData = await oldResponse.json();
+                } catch (error) {
+                    console.warn('Could not load old card data for comparison:', error);
+                    oldData = {};
+                }
+            } else {
+                console.log('No archived card data found - this is normal for the first run');
+            }
 
             const urlParams = new URLSearchParams(window.location.search);
             const viewParam = urlParams.get('view');
@@ -377,19 +385,6 @@ createApp({
             :isGrouped="isGrouped"
             :showHoverImage="showHoverImage.bind(this)"
             :hideHoverImage="hideHoverImage.bind(this)"
-            :showMobileModal="showMobileModal.bind(this)"
-        />
-
-        <ImageModal
-            :imageUrl="mobileModalImageUrl"
-            :isFoilPage="isFoilPage"
-            :showModal="isMobileModalVisible"
-            @hide-modal="hideMobileModal"
-        />
-        <HoverImage
-            :imageUrl="hoverImageUrl"
-            :isFoilPage="isFoilPage"
-            :hoverPosition="hoverImagePosition"
         />
 
     </div>
