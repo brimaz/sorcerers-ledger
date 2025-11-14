@@ -6,10 +6,7 @@ export const CardDisplay = {
     'RARITIES',
     'SET_ICONS',
     'isFoilPage',
-    'isFilteredNmCondition',
     'filterPriceChangeStatus',
-    'NON_FOIL_CONDITION_ORDER',
-    'FOIL_CONDITION_ORDER',
     'allOldSetsCardData',
     'isGrouped',
     'showHoverImage',
@@ -29,81 +26,37 @@ export const CardDisplay = {
               <template v-for="rarity in sortedRarities(setCardsData)">
                 <h3 class="rarity-subheader">{{ setName }} - {{ rarity }}</h3>
                 <template v-if="setCardsData[rarity] && setCardsData[rarity].length > 0">
-                  <template v-if="!isFilteredNmCondition">
-                    <template v-for="condition in currentConditionOrder">
-                      <template v-if="groupedCardsByCondition(setCardsData[rarity], condition).length > 0">
-                        <div class="condition-subheader">Condition: {{ condition }}</div>
-                        <CardItem
-                          v-for="card in groupedCardsByCondition(setCardsData[rarity], condition)"
-                          :key="card.name + card.condition"
-                          :card="card"
-                          :setName="setName"
-                          :isFoilPage="isFoilPage"
-                          :filterPriceChangeStatus="filterPriceChangeStatus"
-                          :allOldSetsCardData="allOldSetsCardData"
-                          :isGrouped="isGrouped"
-                          :showHoverImage="showHoverImage"
-                          :hideHoverImage="hideHoverImage"
-                          :showMobileModal="showMobileModal"
-                        />
-                      </template>
-                    </template>
-                  </template>
-                  <template v-else>
-                    <CardItem
-                      v-for="card in setCardsData[rarity]"
-                      :key="card.name + card.condition"
-                      :card="card"
-                      :setName="setName"
-                      :isFoilPage="isFoilPage"
-                      :filterPriceChangeStatus="filterPriceChangeStatus"
-                      :allOldSetsCardData="allOldSetsCardData"
-                      :isGrouped="isGrouped"
-                      :showHoverImage="showHoverImage"
-                      :hideHoverImage="hideHoverImage"
-                      :showMobileModal="showMobileModal"
-                    />
-                  </template>
+                  <CardItem
+                    v-for="card in setCardsData[rarity]"
+                    :key="card.name + card.condition"
+                    :card="card"
+                    :setName="setName"
+                    :isFoilPage="isFoilPage"
+                    :filterPriceChangeStatus="filterPriceChangeStatus"
+                    :allOldSetsCardData="allOldSetsCardData"
+                    :isGrouped="isGrouped"
+                    :showHoverImage="showHoverImage"
+                    :hideHoverImage="hideHoverImage"
+                    :showMobileModal="showMobileModal"
+                  />
                 </template>
                 <li v-else>No cards available for this rarity.</li>
               </template>
             </template>
             <template v-else>
-              <template v-if="!isFilteredNmCondition">
-                <template v-for="condition in currentConditionOrder">
-                  <template v-if="groupedCardsByCondition(setCardsData, condition).length > 0">
-                    <div class="condition-subheader">Condition: {{ condition }}</div>
-                    <CardItem
-                      v-for="card in groupedCardsByCondition(setCardsData, condition)"
-                      :key="card.name + card.condition"
-                      :card="card"
-                      :setName="setName"
-                      :isFoilPage="isFoilPage"
-                      :filterPriceChangeStatus="filterPriceChangeStatus"
-                      :allOldSetsCardData="allOldSetsCardData"
-                      :isGrouped="isGrouped"
-                      :showHoverImage="showHoverImage"
-                      :hideHoverImage="hideHoverImage"
-                      :showMobileModal="showMobileModal"
-                    />
-                  </template>
-                </template>
-              </template>
-              <template v-else>
-                <CardItem
-                  v-for="card in setCardsData"
-                  :key="card.name + card.condition"
-                  :card="card"
-                  :setName="setName"
-                  :isFoilPage="isFoilPage"
-                  :filterPriceChangeStatus="filterPriceChangeStatus"
-                  :allOldSetsCardData="allOldSetsCardData"
-                  :isGrouped="isGrouped"
-                  :showHoverImage="showHoverImage"
-                  :hideHoverImage="hideHoverImage"
-                  :showMobileModal="showMobileModal"
-                />
-              </template>
+              <CardItem
+                v-for="card in setCardsData"
+                :key="card.name + card.condition"
+                :card="card"
+                :setName="setName"
+                :isFoilPage="isFoilPage"
+                :filterPriceChangeStatus="filterPriceChangeStatus"
+                :allOldSetsCardData="allOldSetsCardData"
+                :isGrouped="isGrouped"
+                :showHoverImage="showHoverImage"
+                :hideHoverImage="hideHoverImage"
+                :showMobileModal="showMobileModal"
+              />
             </template>
           </ul>
           <ul v-else>
@@ -116,17 +69,9 @@ export const CardDisplay = {
   components: {
     CardItem,
   },
-  computed: {
-    currentConditionOrder() {
-      return this.isFoilPage ? this.FOIL_CONDITION_ORDER : this.NON_FOIL_CONDITION_ORDER;
-    },
-  },
   methods: {
     sortedRarities(setCardsData) {
       return this.RARITIES.filter(rarity => setCardsData[rarity] && setCardsData[rarity].length > 0);
-    },
-    groupedCardsByCondition(cards, condition) {
-      return cards.filter(card => card.condition === condition);
     },
   },
 };

@@ -6,3 +6,5 @@ env/
 ENV/
 *.pyc
 __pycache__/
+ebay_token.json
+card-data/

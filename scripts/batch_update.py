@@ -7,7 +7,7 @@ from ebay_parser import generate_card_data_json
 from ebay_auth import get_application_access_token
 
 # --- Configuration ---
-TOKEN_FILE = "card-data/ebay_token.json"
+TOKEN_FILE = "ebay_token.json"
 CACHE_DURATION_HOURS = 24 # How long to consider card_data.json fresh
 TEST_MODE = True # Set to True to only process "Philosopher's Stone" from "Alpha" set for testing
 TEST_CARD_NAME = "Philosopher's Stone"
@@ -127,18 +127,27 @@ def main():
         print("card_data.json not found. Performing full update.")
 
     if should_update:
-        # 4. Archive existing card_data.json if it exists
+        # 4. Archive existing card_data.json only if it's from a previous day
+        # (Don't archive if resuming same-day run)
         card_data_dir = "card-data"
         
         if os.path.exists(output_file):
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            archive_file = f"{card_data_dir}/card_data_{timestamp}.json"
+            modified_time = datetime.fromtimestamp(os.path.getmtime(output_file))
+            today = datetime.now().date()
+            file_date = modified_time.date()
             
-            # Rename current file to archived name
-            os.rename(output_file, archive_file)
-            print(f"Archived previous card_data.json to {archive_file}")
+            # Only archive if file is from a previous day
+            if file_date < today:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                archive_file = f"{card_data_dir}/card_data_{timestamp}.json"
+                
+                # Rename current file to archived name
+                os.rename(output_file, archive_file)
+                print(f"Archived previous day's card_data.json to {archive_file}")
+            else:
+                print(f"Resuming from existing card_data.json (same day, last updated {modified_time.strftime('%Y-%m-%d %H:%M:%S')})")
         
-        # 5. Generate card data from eBay
+        # 5. Generate card data from eBay (will resume if file exists)
         print("Starting eBay card data parsing...")
         generate_card_data_json(output_file, test_mode=TEST_MODE, test_card_name=TEST_CARD_NAME, test_set_name=TEST_SET_NAME)
         print("eBay card data parsing complete.")

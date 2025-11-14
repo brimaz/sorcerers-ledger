@@ -16,7 +16,7 @@ export const CardItem = {
            @mouseover="showHoverImage($event.target, imageUrl, isFoilPage)"
            @mouseleave="hideHoverImage()"
            @click.prevent="handleCardClick()">
-          {{ card.name }} ({{ card.condition }})
+          {{ card.name }}
         </a>
         <span v-if="showFluctuation" :class="'price-fluctuation-' + fluctuation.colorClass">{{ fluctuation.arrow }}</span>
       </span>

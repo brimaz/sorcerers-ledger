@@ -1,6 +1,7 @@
 import json
 import os
 import requests
+import time
 from datetime import datetime, timedelta
 from config import EBAY_BUY_API_ENDPOINT
 
@@ -11,6 +12,14 @@ from config import EBAY_BUY_API_ENDPOINT
 
 RARITIES = ["Ordinary", "Exceptional", "Elite", "Unique"]
 
+# Rate limiting configuration
+API_CALL_DELAY = 0.7  # Delay in seconds between API calls
+MAX_RETRY_DELAY = 60  # Maximum delay for exponential backoff (60 seconds)
+INITIAL_RETRY_DELAY = 1  # Initial delay for exponential backoff (1 second)
+
+# Track last API call time for rate limiting
+_last_api_call_time = 0
+
 # Keywords to exclude from listings (bulk/lot listings)
 EXCLUSION_KEYWORDS = [
     "bulk", "lot", "lots", "bundle", "bundles", 
@@ -18,11 +27,124 @@ EXCLUSION_KEYWORDS = [
     "collection", "playset", "play set"
 ]
 
+# Keywords to identify graded cards (exclude from non-graded price tracking)
+GRADED_KEYWORDS = [
+    "psa", "bgs", "cgc", "sgc", "hga", "gma", "kga",
+    "psa 10", "psa 9", "psa 8", "bgs 10", "bgs 9", "bgs 8",
+    "cgc 10", "cgc 9", "cgc 8", "graded", "slab", "slabbed"
+]
+
+def _wait_for_rate_limit():
+    """Wait to maintain rate limit between API calls."""
+    global _last_api_call_time
+    current_time = time.time()
+    time_since_last_call = current_time - _last_api_call_time
+    
+    if time_since_last_call < API_CALL_DELAY:
+        sleep_time = API_CALL_DELAY - time_since_last_call
+        time.sleep(sleep_time)
+    
+    _last_api_call_time = time.time()
+
+def _make_rate_limited_request(url, headers, params, max_retries=5):
+    """
+    Make an API request with rate limiting and exponential backoff for 429 errors.
+    
+    Args:
+        url: API endpoint URL
+        headers: Request headers
+        params: Request parameters
+        max_retries: Maximum number of retry attempts
+    
+    Returns:
+        Response object or None if all retries failed
+    """
+    _wait_for_rate_limit()
+    
+    retry_count = 0
+    retry_delay = INITIAL_RETRY_DELAY
+    
+    while retry_count <= max_retries:
+        try:
+            response = requests.get(url, headers=headers, params=params)
+            
+            # Check for rate limit error (429)
+            if response.status_code == 429:
+                # Check for X-RateLimit-Reset header
+                reset_header = response.headers.get('X-RateLimit-Reset')
+                
+                if reset_header:
+                    try:
+                        # Parse reset time (could be Unix timestamp or seconds until reset)
+                        reset_time = float(reset_header)
+                        
+                        # If it's a large number, assume it's a Unix timestamp
+                        if reset_time > 1000000000:
+                            wait_seconds = reset_time - time.time()
+                        else:
+                            # Otherwise assume it's seconds until reset
+                            wait_seconds = reset_time
+                        
+                        if wait_seconds > 0:
+                            print(f"  Rate limited (429). Waiting {wait_seconds:.1f} seconds until reset (from X-RateLimit-Reset header)...")
+                            time.sleep(wait_seconds)
+                            retry_delay = INITIAL_RETRY_DELAY  # Reset delay after waiting for reset
+                            retry_count += 1
+                            continue
+                    except (ValueError, TypeError):
+                        pass
+                
+                # No valid reset header, use exponential backoff
+                if retry_count < max_retries:
+                    print(f"  Rate limited (429). Retrying in {retry_delay:.1f} seconds (attempt {retry_count + 1}/{max_retries})...")
+                    time.sleep(retry_delay)
+                    retry_delay = min(retry_delay * 2, MAX_RETRY_DELAY)  # Double delay, cap at max
+                    retry_count += 1
+                    continue
+                else:
+                    print(f"  Rate limited (429). Max retries ({max_retries}) exceeded.")
+                    return None
+            
+            # For other HTTP errors, raise exception
+            response.raise_for_status()
+            return response
+            
+        except requests.exceptions.RequestException as e:
+            if retry_count < max_retries:
+                print(f"  Request error: {e}. Retrying in {retry_delay:.1f} seconds (attempt {retry_count + 1}/{max_retries})...")
+                time.sleep(retry_delay)
+                retry_delay = min(retry_delay * 2, MAX_RETRY_DELAY)
+                retry_count += 1
+            else:
+                raise
+    
+    return None
+
+def is_graded_card(item: dict) -> bool:
+    """
+    Check if an item is a graded card based on title keywords.
+    Returns True if the item appears to be graded.
+    """
+    title = ""
+    if isinstance(item, dict):
+        # Buy API structure (title is a string)
+        title = str(item.get("title", "")).lower()
+    
+    # Check if title contains any graded card keywords
+    for keyword in GRADED_KEYWORDS:
+        if keyword in title:
+            return True
+    return False
+
 def should_exclude_item(item: dict) -> bool:
     """
     Check if an item should be excluded based on title keywords.
-    Returns True if the item should be excluded (contains exclusion keywords).
+    Returns True if the item should be excluded (contains exclusion keywords or is graded).
     """
+    # Exclude graded cards
+    if is_graded_card(item):
+        return True
+    
     title = ""
     if isinstance(item, dict):
         # Buy API structure (title is a string)
@@ -59,8 +181,10 @@ def fetch_sold_ebay_card_data(query: str) -> list:
     }
     
     try:
-        response = requests.get(EBAY_BUY_API_ENDPOINT, headers=headers, params=params)
-        response.raise_for_status()
+        response = _make_rate_limited_request(EBAY_BUY_API_ENDPOINT, headers, params)
+        if response is None:
+            return []
+        
         data = response.json()
         
         # The Buy API returns items directly under 'itemSummaries'
@@ -119,8 +243,10 @@ def fetch_current_ebay_card_data(query: str) -> list:
     }
 
     try:
-        response = requests.get(EBAY_BUY_API_ENDPOINT, headers=headers, params=params)
-        response.raise_for_status()
+        response = _make_rate_limited_request(EBAY_BUY_API_ENDPOINT, headers, params)
+        if response is None:
+            return []
+        
         data = response.json()
         
         # The Buy API returns items directly under 'itemSummaries'
@@ -184,9 +310,80 @@ def is_foil_item(item, item_title_key="title"):
     foil_keywords = ["foil", "holo", "holofoil", "foil card", "foil version"]
     return any(keyword in title for keyword in foil_keywords)
 
+def _load_existing_card_data(output_file_path: str) -> dict:
+    """
+    Load existing card data from file if it exists.
+    
+    Args:
+        output_file_path: Path to card data JSON file
+    
+    Returns:
+        Dictionary with existing card data, or empty dict if file doesn't exist
+    """
+    if not os.path.exists(output_file_path):
+        return {}
+    
+    try:
+        with open(output_file_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (json.JSONDecodeError, IOError) as e:
+        print(f"Warning: Could not load existing card data: {e}")
+        return {}
+
+def _is_card_complete(existing_data: dict, card_name: str, set_name: str) -> bool:
+    """
+    Check if a card-set combination is already complete in the existing data.
+    A card is considered complete if it has both nonFoil and foil entries with valid data.
+    
+    Args:
+        existing_data: Existing card data dictionary
+        card_name: Name of the card
+        set_name: Name of the set
+    
+    Returns:
+        True if card is complete, False otherwise
+    """
+    if set_name not in existing_data:
+        return False
+    
+    set_data = existing_data[set_name]
+    
+    # Check if card exists in both nonFoil and foil arrays
+    nonfoil_found = False
+    foil_found = False
+    
+    for card in set_data.get("nonFoil", []):
+        if card.get("name") == card_name:
+            # Check if it has valid price data
+            price = card.get("price", "0")
+            avg_sold = card.get("avgSoldPrice", "0")
+            avg_current = card.get("avgCurrentPrice", "0")
+            try:
+                if float(price) > 0 or float(avg_sold) > 0 or float(avg_current) > 0:
+                    nonfoil_found = True
+                    break
+            except (ValueError, TypeError):
+                pass
+    
+    for card in set_data.get("foil", []):
+        if card.get("name") == card_name:
+            # Check if it has valid price data
+            price = card.get("price", "0")
+            avg_sold = card.get("avgSoldPrice", "0")
+            avg_current = card.get("avgCurrentPrice", "0")
+            try:
+                if float(price) > 0 or float(avg_sold) > 0 or float(avg_current) > 0:
+                    foil_found = True
+                    break
+            except (ValueError, TypeError):
+                pass
+    
+    return nonfoil_found and foil_found
+
 def generate_card_data_json(output_file_path: str, test_mode: bool = True, test_card_name: str = "Philosopher's Stone", test_set_name: str = "Alpha"):
     """
     Generate card data JSON from eBay API.
+    Can resume from existing data if the file exists.
     
     Args:
         output_file_path: Path to output JSON file
@@ -194,7 +391,11 @@ def generate_card_data_json(output_file_path: str, test_mode: bool = True, test_
         test_card_name: Card name to process in test mode
         test_set_name: Set name to process in test mode
     """
-    all_sets_processed_data = {}
+    # Load existing data if it exists (for resume functionality)
+    all_sets_processed_data = _load_existing_card_data(output_file_path)
+    if all_sets_processed_data:
+        print(f"Found existing card data. Resuming from previous run...")
+    
     master_card_list = load_master_card_list()
     if not master_card_list:
         print("Failed to load master card list. Exiting.")
@@ -202,6 +403,29 @@ def generate_card_data_json(output_file_path: str, test_mode: bool = True, test_
 
     if test_mode:
         print(f"TEST MODE: Only processing {test_card_name} from {test_set_name} set")
+
+    # Count total card-set combinations and already processed cards
+    total_combinations = 0
+    already_processed = 0
+    for card_name, card_info in master_card_list.items():
+        if test_mode and card_name != test_card_name:
+            continue
+        for set_details in card_info["sets"]:
+            if test_mode and set_details["set_name"] != test_set_name:
+                continue
+            total_combinations += 1
+            if _is_card_complete(all_sets_processed_data, card_name, set_details["set_name"]):
+                already_processed += 1
+    
+    remaining = total_combinations - already_processed
+    print(f"Total card-set combinations: {total_combinations}")
+    if already_processed > 0:
+        print(f"Already processed: {already_processed}")
+        print(f"Remaining to process: {remaining}")
+    print(f"Saving progress every 50 cards...")
+    
+    processed_count = already_processed
+    SAVE_INTERVAL = 50  # Save every 50 cards
 
     for card_name, card_info in master_card_list.items():
         # Test mode filter
@@ -214,6 +438,10 @@ def generate_card_data_json(output_file_path: str, test_mode: bool = True, test_
             
             # Test mode filter for set
             if test_mode and set_name != test_set_name:
+                continue
+
+            # Check if card is already complete - skip if so
+            if _is_card_complete(all_sets_processed_data, card_name, set_name):
                 continue
 
             if set_name not in all_sets_processed_data:
@@ -244,7 +472,7 @@ def generate_card_data_json(output_file_path: str, test_mode: bool = True, test_
             
             print(f"  Found {len(raw_sold_items_nonfoil)} sold non-foil items")
             for item in raw_sold_items_nonfoil:
-                if not is_foil_item(item):  # Double-check it's not foil
+                if not is_foil_item(item) and not is_graded_card(item):  # Exclude foil and graded
                     # Buy API format: price -> value
                     price_info = item.get("price", {})
                     price_value = price_info.get("value", "0.0")
@@ -255,7 +483,7 @@ def generate_card_data_json(output_file_path: str, test_mode: bool = True, test_
             
             print(f"  Found {len(raw_sold_items_foil)} sold foil items")
             for item in raw_sold_items_foil:
-                if is_foil_item(item):  # Confirm it's foil
+                if is_foil_item(item) and not is_graded_card(item):  # Confirm foil and exclude graded
                     # Buy API format: price -> value
                     price_info = item.get("price", {})
                     price_value = price_info.get("value", "0.0")
@@ -291,7 +519,7 @@ def generate_card_data_json(output_file_path: str, test_mode: bool = True, test_
             
             print(f"  Found {len(raw_current_items_nonfoil)} current non-foil items")
             for item in raw_current_items_nonfoil:
-                if not is_foil_item(item):  # Double-check it's not foil
+                if not is_foil_item(item) and not is_graded_card(item):  # Exclude foil and graded
                     price_info = item.get("price", {})
                     price_value = price_info.get("value", "0.0")
                     try:
@@ -301,7 +529,7 @@ def generate_card_data_json(output_file_path: str, test_mode: bool = True, test_
             
             print(f"  Found {len(raw_current_items_foil)} current foil items")
             for item in raw_current_items_foil:
-                if is_foil_item(item):  # Confirm it's foil
+                if is_foil_item(item) and not is_graded_card(item):  # Confirm foil and exclude graded
                     price_info = item.get("price", {})
                     price_value = price_info.get("value", "0.0")
                     try:
@@ -388,6 +616,12 @@ def generate_card_data_json(output_file_path: str, test_mode: bool = True, test_
             if rarity_from_master in all_sets_processed_data[set_name]["foilByRarityName"]:
                 all_sets_processed_data[set_name]["foilByRarityName"][rarity_from_master].append(card_info_foil)
 
+            # Periodic save every SAVE_INTERVAL cards
+            processed_count += 1
+            if processed_count % SAVE_INTERVAL == 0:
+                _save_card_data_intermediate(all_sets_processed_data, output_file_path)
+                print(f"  Progress: {processed_count}/{total_combinations} cards processed (saved)")
+
     # Final sorting after all data is gathered for each set
     for set_name in all_sets_processed_data:
         def sort_by_price(cards):
@@ -409,5 +643,20 @@ def generate_card_data_json(output_file_path: str, test_mode: bool = True, test_
             all_sets_processed_data[set_name]["foilByRarityPrice"][rarity_key] = sort_by_price(all_sets_processed_data[set_name]["foilByRarityPrice"][rarity_key])
             all_sets_processed_data[set_name]["foilByRarityName"][rarity_key] = sort_by_name(all_sets_processed_data[set_name]["foilByRarityName"][rarity_key])
 
-    with open(output_file_path, 'w', encoding='utf-8') as f:
-        json.dump(all_sets_processed_data, f, ensure_ascii=False, indent=4)
+    # Final save with sorted data
+    _save_card_data_intermediate(all_sets_processed_data, output_file_path)
+    print(f"Final save complete. Total cards processed: {processed_count}")
+
+def _save_card_data_intermediate(data: dict, output_file_path: str):
+    """
+    Save card data to file (used for periodic saves and final save).
+    
+    Args:
+        data: The card data dictionary to save
+        output_file_path: Path to output JSON file
+    """
+    try:
+        with open(output_file_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+    except Exception as e:
+        print(f"Error saving card data: {e}")

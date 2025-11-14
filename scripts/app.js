@@ -31,12 +31,9 @@ createApp({
           "Exceptional": 0.75,
           "Ordinary": 0.75,
       },
-      NON_FOIL_CONDITION_ORDER: ["NM", "LP", "MP", "HP", "D"],
-      FOIL_CONDITION_ORDER: ["NMF", "LPF", "MPF", "HPF"],
       sortBy: 'price-desc', // Default sort option
       isGrouped: true, // Default
       isFiltered: true, // Default
-      isFilteredNmCondition: true, // Default
       filterPriceChangeStatus: true, // Default
       mobileModalImageUrl: '',
       isMobileModalVisible: false,
@@ -107,7 +104,6 @@ createApp({
             const sortParam = urlParams.get('sort');
             const groupRarityParam = urlParams.get('groupRarity');
             const filterValueParam = urlParams.get('filterValue');
-            const filterNmConditionParam = urlParams.get('filterNmCondition');
             const filterPriceChangeParam = urlParams.get('filterPriceChange');
 
             if (groupRarityParam === 'true') {
@@ -126,15 +122,6 @@ createApp({
             }
             else {
                 this.isFiltered = false;
-            }
-
-            if (filterNmConditionParam === 'true') {
-                this.isFilteredNmCondition = true;
-            } else if (filterNmConditionParam === null) {
-                this.isFilteredNmCondition = true;
-            }
-            else {
-                this.isFilteredNmCondition = false;
             }
 
             if (filterPriceChangeParam === 'true') {
@@ -176,7 +163,7 @@ createApp({
       if (oldestFile) {
         return `${cardDataDirectory}/${oldestFile}`;
       } else {
-        console.warn('No card data files found in', cardDataDirectory);
+        console.warn('No archived card data files found in', cardDataDirectory);
         return null;
       }
     },
@@ -187,7 +174,7 @@ createApp({
       }
       return null;
     },
-    getSortedData(setsData, setsDataByName, setsDataByRarityPrice, setsDataByRarityName, sortOption, isGrouped, isFiltered, isFilteredNmCondition, isFilteredByPriceChange) {
+    getSortedData(setsData, setsDataByName, setsDataByRarityPrice, setsDataByRarityName, sortOption, isGrouped, isFiltered, isFilteredByPriceChange) {
       let processedData = {};
 
       if (isGrouped) {
@@ -223,30 +210,6 @@ createApp({
               processedData = filteredData;
           }
 
-          if (isFilteredNmCondition) {
-              const filteredNmData = {};
-              const nmCondition = this.isFoilPage ? "NMF" : "NM";
-              for (const setName in processedData) {
-                  filteredNmData[setName] = {};
-                  for (const rarity in processedData[setName]) {
-                      filteredNmData[setName][rarity] = processedData[setName][rarity].filter(card => card.condition === nmCondition);
-                  }
-              }
-              processedData = filteredNmData;
-          } else { // Sort by condition
-              const sortedByConditionData = {};
-              const currentConditionOrder = this.isFoilPage ? this.FOIL_CONDITION_ORDER : this.NON_FOIL_CONDITION_ORDER;
-              for (const setName in processedData) {
-                  sortedByConditionData[setName] = {};
-                  for (const rarity in processedData[setName]) {
-                      sortedByConditionData[setName][rarity] = [...processedData[setName][rarity]].sort((a, b) => {
-                          return currentConditionOrder.indexOf(a.condition) - currentConditionOrder.indexOf(b.condition);
-                      });
-                  }
-              }
-              processedData = sortedByConditionData;
-          }
-
           return processedData;
 
       } else { // Not grouped
@@ -275,24 +238,6 @@ createApp({
               processedData = filteredData;
           }
 
-          if (isFilteredNmCondition) {
-              const filteredNmData = {};
-              const nmCondition = this.isFoilPage ? "NMF" : "NM";
-              for (const setName in processedData) {
-                  filteredNmData[setName] = processedData[setName].filter(card => card.condition === nmCondition);
-              }
-              processedData = filteredNmData;
-          } else { // Sort by condition
-              const sortedByConditionData = {};
-              const currentConditionOrder = this.isFoilPage ? this.FOIL_CONDITION_ORDER : this.NON_FOIL_CONDITION_ORDER;
-              for (const setName in processedData) {
-                  sortedByConditionData[setName] = [...processedData[setName]].sort((a, b) => {
-                      return currentConditionOrder.indexOf(a.condition) - currentConditionOrder.indexOf(b.condition);
-                  });
-              }
-              processedData = sortedByConditionData;
-          }
-
           return processedData;
       }
     },
@@ -301,7 +246,6 @@ createApp({
       url.searchParams.set('sort', this.sortBy);
       url.searchParams.set('groupRarity', this.isGrouped);
       url.searchParams.set('filterValue', this.isFiltered);
-      url.searchParams.set('filterNmCondition', this.isFilteredNmCondition);
       url.searchParams.set('filterPriceChange', this.filterPriceChangeStatus);
       window.history.pushState({}, '', url);
     },
@@ -341,7 +285,6 @@ createApp({
     sortBy: 'navigateToSort',
     isGrouped: 'navigateToSort',
     isFiltered: 'navigateToSort',
-    isFilteredNmCondition: 'navigateToSort',
     filterPriceChangeStatus: 'navigateToSort',
     isFoilPage: {
         handler(newVal) {
@@ -368,7 +311,6 @@ createApp({
             </select>
             <label for="group-by-rarity">Group by Rarity:<input type="checkbox" id="group-by-rarity" v-model="isGrouped"></label>
             <label for="filter-by-value">Show Only High Value Cards:<input type="checkbox" id="filter-by-value" v-model="isFiltered"></label>
-            <label for="filter-by-nm-condition">Show Only NM Condition:<input type="checkbox" id="filter-by-nm-condition" v-model="isFilteredNmCondition"></label>
             <label for="filter-by-price-change">Price Changes >= $1 (Last Week):<input type="checkbox" id="filter-by-price-change" v-model="filterPriceChangeStatus"></label>
         </div>
 
@@ -377,10 +319,7 @@ createApp({
             :RARITIES="RARITIES"
             :SET_ICONS="SET_ICONS"
             :isFoilPage="isFoilPage"
-            :isFilteredNmCondition="isFilteredNmCondition"
             :filterPriceChangeStatus="filterPriceChangeStatus"
-            :NON_FOIL_CONDITION_ORDER="NON_FOIL_CONDITION_ORDER"
-            :FOIL_CONDITION_ORDER="FOIL_CONDITION_ORDER"
             :allOldSetsCardData="allOldSetsCardData"
             :isGrouped="isGrouped"
             :showHoverImage="showHoverImage.bind(this)"
@@ -399,7 +338,6 @@ createApp({
         this.sortBy,
         this.isGrouped,
         this.isFiltered,
-        this.isFilteredNmCondition,
         this.filterPriceChangeStatus
       );
     },
