@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import requests
 import time
 import unicodedata
@@ -21,11 +22,13 @@ INITIAL_RETRY_DELAY = 1  # Initial delay for exponential backoff (1 second)
 # Track last API call time for rate limiting
 _last_api_call_time = 0
 
-# Keywords to exclude from listings (bulk/lot listings)
+# Keywords to exclude from listings
 EXCLUSION_KEYWORDS = [
     "bulk", "lot", "lots", "bundle", "bundles", 
     "multiple", "set of", "pack of", "group of",
-    "collection", "playset", "play set"
+    "collection", "playset", "play set",
+    "curio", "booster box", 
+    "movie", "movies", "dvd", "blu-ray", "film"
 ]
 
 # Keywords to identify graded cards (exclude from non-graded price tracking)
@@ -34,6 +37,48 @@ GRADED_KEYWORDS = [
     "psa 10", "psa 9", "psa 8", "bgs 10", "bgs 9", "bgs 8",
     "cgc 10", "cgc 9", "cgc 8", "graded", "slab", "slabbed"
 ]
+
+# Cards that share names with manufacturers/brands - need special query handling
+# These cards will have "card" added to the query to distinguish from brand listings
+CARDS_WITH_BRAND_NAME_CONFLICTS = [
+    "Erik's Curiosa"  # Conflicts with Erik's Curiosa brand/manufacturer
+]
+
+def build_ebay_query(card_name: str, set_name: str, is_foil: bool) -> str:
+    """
+    Build an eBay search query for a card, with special handling for cards that
+    share names with manufacturers/brands.
+    
+    Note: For non-foil queries, we don't use "-foil" because it would exclude
+    listings with "NONFOIL" in the title. Instead, we filter foil items in post-processing.
+    
+    Args:
+        card_name: Name of the card
+        set_name: Name of the set
+        is_foil: Whether searching for foil version
+        
+    Returns:
+        Formatted eBay search query string
+    """
+    normalized_card_name = normalize_to_american_english(card_name)
+    normalized_set_name = normalize_to_american_english(set_name)
+    
+    # For cards that conflict with brand names, add "card" to make query more specific
+    if card_name in CARDS_WITH_BRAND_NAME_CONFLICTS:
+        if is_foil:
+            return f'Sorcery "{normalized_card_name}" card {normalized_set_name} foil'
+        else:
+            # Don't use -foil here - it would exclude "NONFOIL" listings
+            # Filtering will be done in post-processing
+            return f'Sorcery "{normalized_card_name}" card {normalized_set_name}'
+    else:
+        # Standard query format
+        if is_foil:
+            return f"Sorcery {normalized_card_name} {normalized_set_name} foil"
+        else:
+            # Don't use -foil here - it would exclude "NONFOIL" listings
+            # Filtering will be done in post-processing
+            return f"Sorcery {normalized_card_name} {normalized_set_name}"
 
 def normalize_to_american_english(text: str) -> str:
     """
@@ -162,77 +207,213 @@ def is_graded_card(item: dict) -> bool:
             return True
     return False
 
+def filter_items_by_card_name(items: list, card_name: str) -> list:
+    """
+    Filter items to only include those that contain the card name in the title.
+    This is used for cards with brand name conflicts to exclude unrelated results.
+    
+    Args:
+        items: List of eBay item dictionaries
+        card_name: The card name to match in item titles
+        
+    Returns:
+        Filtered list of items that contain the card name
+    """
+    if card_name not in CARDS_WITH_BRAND_NAME_CONFLICTS:
+        # No filtering needed for non-conflict cards
+        return items
+    
+    # Normalize card name for comparison
+    normalized_card_name = normalize_to_american_english(card_name).lower()
+    
+    # Create variants for matching (handle apostrophes, spaces, etc.)
+    card_name_variants = [
+        normalized_card_name,  # "erik's curiosa"
+        normalized_card_name.replace("'", ""),  # "eriks curiosa"
+        normalized_card_name.replace("'s", ""),  # "erik curiosa"
+        normalized_card_name.replace("'", " "),  # "erik s curiosa" (less likely but possible)
+    ]
+    # Remove empty strings and duplicates
+    card_name_variants = list(set([v for v in card_name_variants if v]))
+    
+    filtered_items = []
+    excluded_count = 0
+    excluded_titles = []
+    
+    for item in items:
+        title = str(item.get("title", "")).lower()
+        # Check if any variant of the card name appears in the title
+        # We check for word boundaries to avoid partial matches
+        matches = False
+        for variant in card_name_variants:
+            # Check if the variant appears in the title
+            if variant in title:
+                # Use word boundaries to ensure it's a whole word/phrase match
+                pattern = r'\b' + re.escape(variant) + r'\b'
+                if re.search(pattern, title):
+                    matches = True
+                    break
+        
+        if matches:
+            filtered_items.append(item)
+        else:
+            excluded_count += 1
+            if excluded_count <= 3:  # Store first 3 for logging
+                excluded_titles.append(item.get("title", "Unknown")[:80])
+    
+    if excluded_count > 0:
+        print(f"  Filtered out {excluded_count} items that didn't contain '{card_name}' in title")
+        if excluded_titles:
+            for title in excluded_titles:
+                print(f"    - Excluded: {title}...")
+    
+    return filtered_items
+
 def should_exclude_item(item: dict) -> bool:
     """
-    Check if an item should be excluded based on title keywords.
-    Returns True if the item should be excluded (contains exclusion keywords or is graded).
+    Check if an item should be excluded based on title keywords and metadata.
+    Returns True if the item should be excluded (contains exclusion keywords).
+    Note: Graded cards are checked separately in fetch functions.
     """
-    # Exclude graded cards
-    if is_graded_card(item):
-        return True
+    # Don't check graded here - that's done separately in fetch functions
     
-    title = ""
-    if isinstance(item, dict):
-        # Buy API structure (title is a string)
-        title = str(item.get("title", "")).lower()
+    if not isinstance(item, dict):
+        return False
     
-    # Check if title contains any exclusion keywords
+    # Check title
+    title = str(item.get("title", "")).lower()
+    
+    # Check category path and other metadata fields for exclusion keywords
+    # eBay Buy API includes categoryPath which contains category hierarchy
+    category_path = ""
+    category_path_list = item.get("categoryPath", [])
+    if isinstance(category_path_list, list):
+        # Join category path segments into a string
+        category_path = " ".join([str(cat) for cat in category_path_list]).lower()
+    elif isinstance(category_path_list, str):
+        category_path = category_path_list.lower()
+    
+    # Also check other metadata fields that might contain category info
+    # Some items have additional fields like itemLocation, condition, etc.
+    # Combine all searchable text fields
+    searchable_text = f"{title} {category_path}".lower()
+    
+    # Check if any exclusion keyword appears in title or category metadata
     for keyword in EXCLUSION_KEYWORDS:
-        if keyword in title:
+        if keyword in title or keyword in category_path:
             return True
+    
     return False
 
 def fetch_sold_ebay_card_data(query: str) -> list:
-    # Buy API Browse endpoint with itemSoldFilter for sold listings (uses OAuth)
+    """
+    Fetch sold eBay card data using the Buy API Browse endpoint with OAuth authentication.
+    Uses the item_summary/search method with itemSoldOutcome filter for sold listings.
+    """
     ebay_access_token = os.environ.get("EBAY_ACCESS_TOKEN")
     if not ebay_access_token:
-        print("EBAY_ACCESS_TOKEN not found for Buy API. Please ensure batch_update.py sets it.")
+        print("  [ERROR] EBAY_ACCESS_TOKEN not found for Buy API. Please ensure batch_update.py sets it.")
         return []
-
+    
     headers = {
         "Authorization": f"Bearer {ebay_access_token}",
-        "X-EBAY-C-MARKETPLACE-ID": "EBAY_US", # Specify the marketplace
+        "X-EBAY-C-MARKETPLACE-ID": "EBAY_US",  # Specify the marketplace
         "Content-Type": "application/json"
     }
-
+    
     # Use simple query (exclusions applied via post-filtering, not in query)
     # Negative keywords in query can be too restrictive and filter out valid results
     print(f"  Query: {query}")
-    
-    params = {
-        "q": query,  # Simple query without exclusion terms
-        "item_filters": "itemSoldFilter:{true}",  # Filter for sold items only
-        "limit": 100,
-        "sort": "newlyListed"  # Sort by newly listed (most recent first)
-    }
+    print(f"  Using Buy API Browse endpoint for sold listings...")
     
     try:
-        response = _make_rate_limited_request(EBAY_BUY_API_ENDPOINT, headers, params)
-        if response is None:
-            return []
+        all_items = []
+        offset = 0
+        limit = 100
+        max_items = 10000  # Safety limit - Browse API may have limits on sold items
+        total_items = 0
         
-        data = response.json()
+        # Loop through all pages to get complete results
+        while offset < max_items:
+            # Buy API Browse parameters for sold items
+            params = {
+                "q": query,  # Search query
+                "filter": "itemSoldOutcome:{SOLD}",  # Filter for sold items only
+                "limit": limit,
+                "offset": offset,
+                "sort": "-endDate"  # Sort by end date descending (newest sold items first)
+            }
+            
+            response = _make_rate_limited_request(EBAY_BUY_API_ENDPOINT, headers, params)
+            if response is None:
+                break
+            
+            data = response.json()
+            
+            # The Buy API returns items directly under 'itemSummaries'
+            page_items = data.get("itemSummaries", [])
+            
+            # Get total count (only on first page)
+            if offset == 0:
+                total_items = data.get("total", 0)
+                print(f"  API returned {total_items} total items")
+                
+                if total_items == 0:
+                    print(f"  [WARNING] No items found - this may indicate API limitations or no matching listings")
+                    break
+            
+            # Add items from this page
+            all_items.extend(page_items)
+            
+            # Check if we've got all items or if this is the last page
+            if len(page_items) < limit:
+                # Last page (fewer items than limit)
+                break
+            
+            if len(all_items) >= total_items:
+                # We've retrieved all items
+                break
+            
+            # Move to next page
+            offset += limit
+            
+            # Safety check to prevent infinite loops
+            if offset >= max_items:
+                print(f"  [WARNING] Reached safety limit of {max_items} items")
+                break
         
-        # The Buy API returns items directly under 'itemSummaries'
-        items = data.get("itemSummaries", [])
-        total = data.get("total", 0)
-        print(f"  API returned {total} total items, {len(items)} in this page")
+        print(f"  Retrieved {len(all_items)} items")
+        
+        if total_items > 0 and len(all_items) < total_items:
+            print(f"  [WARNING] Retrieved {len(all_items)} items but API reports {total_items} total - may need more pages or API has limitations")
         
         # Filter out items that contain exclusion keywords (post-filtering)
         filtered_items = []
-        excluded_items = []
-        for item in items:
-            if should_exclude_item(item):
-                excluded_items.append(item.get("title", "Unknown"))
+        excluded_graded = []
+        excluded_keywords = []
+        
+        for item in all_items:
+            title = item.get("title", "Unknown")
+            if is_graded_card(item):
+                excluded_graded.append(title)
+            elif should_exclude_item(item):
+                excluded_keywords.append(title)
             else:
                 filtered_items.append(item)
         
-        if excluded_items:
-            print(f"  Filtered out {len(excluded_items)} bulk/lot listings:")
-            for excluded_title in excluded_items[:3]:  # Show first 3 excluded items
+        if excluded_graded:
+            print(f"  Filtered out {len(excluded_graded)} graded cards:")
+            for excluded_title in excluded_graded[:3]:  # Show first 3 excluded items
                 print(f"    - {excluded_title[:80]}...")
-            if len(excluded_items) > 3:
-                print(f"    ... and {len(excluded_items) - 3} more")
+            if len(excluded_graded) > 3:
+                print(f"    ... and {len(excluded_graded) - 3} more")
+        
+        if excluded_keywords:
+            print(f"  Filtered out {len(excluded_keywords)} bulk/lot/special listings:")
+            for excluded_title in excluded_keywords[:3]:  # Show first 3 excluded items
+                print(f"    - {excluded_title[:80]}...")
+            if len(excluded_keywords) > 3:
+                print(f"    ... and {len(excluded_keywords) - 3} more")
         
         print(f"  After filtering: {len(filtered_items)} items remaining")
         return filtered_items
@@ -244,6 +425,11 @@ def fetch_sold_ebay_card_data(query: str) -> list:
         return []
     except json.JSONDecodeError as e:
         print(f"Error decoding eBay SOLD API response for {query}: {e}")
+        return []
+    except Exception as e:
+        print(f"Unexpected error fetching eBay SOLD data for {query}: {e}")
+        import traceback
+        traceback.print_exc()
         return []
 
 def fetch_current_ebay_card_data(query: str) -> list:
@@ -282,19 +468,31 @@ def fetch_current_ebay_card_data(query: str) -> list:
         
         # Filter out items that contain exclusion keywords (post-filtering)
         filtered_items = []
-        excluded_items = []
+        excluded_graded = []
+        excluded_keywords = []
+        
         for item in items:
-            if should_exclude_item(item):
-                excluded_items.append(item.get("title", "Unknown"))
+            title = item.get("title", "Unknown")
+            if is_graded_card(item):
+                excluded_graded.append(title)
+            elif should_exclude_item(item):
+                excluded_keywords.append(title)
             else:
                 filtered_items.append(item)
         
-        if excluded_items:
-            print(f"  Filtered out {len(excluded_items)} bulk/lot listings:")
-            for excluded_title in excluded_items[:3]:  # Show first 3 excluded items
+        if excluded_graded:
+            print(f"  Filtered out {len(excluded_graded)} graded cards:")
+            for excluded_title in excluded_graded[:3]:  # Show first 3 excluded items
                 print(f"    - {excluded_title[:80]}...")
-            if len(excluded_items) > 3:
-                print(f"    ... and {len(excluded_items) - 3} more")
+            if len(excluded_graded) > 3:
+                print(f"    ... and {len(excluded_graded) - 3} more")
+        
+        if excluded_keywords:
+            print(f"  Filtered out {len(excluded_keywords)} bulk/lot/special listings:")
+            for excluded_title in excluded_keywords[:3]:  # Show first 3 excluded items
+                print(f"    - {excluded_title[:80]}...")
+            if len(excluded_keywords) > 3:
+                print(f"    ... and {len(excluded_keywords) - 3} more")
         
         print(f"  After filtering: {len(filtered_items)} items remaining")
         return filtered_items
@@ -320,6 +518,7 @@ def is_foil_item(item, item_title_key="title"):
     """
     Determine if an eBay item is a foil variant based on title/description.
     Checks for common foil indicators in the item title.
+    Note: "NONFOIL", "non-foil", and "non foil" are explicitly excluded from being considered foil.
     """
     # Try to get title from different possible structures
     title = ""
@@ -331,6 +530,11 @@ def is_foil_item(item, item_title_key="title"):
         # Buy API structure (title is a string)
         elif "title" in item:
             title = str(item.get("title", "")).lower()
+    
+    # Explicitly exclude non-foil variations - if title contains any of these, it's not a foil item
+    non_foil_keywords = ["nonfoil", "non-foil", "non foil"]
+    if any(keyword in title for keyword in non_foil_keywords):
+        return False
     
     # Common foil indicators in eBay listings
     foil_keywords = ["foil", "holo", "holofoil", "foil card", "foil version"]
@@ -482,20 +686,20 @@ def generate_card_data_json(output_file_path: str, test_mode: bool = True, test_
                 }
 
             # --- Fetch Sold Data (Buy API with itemSoldFilter) - Separate queries for foil and non-foil ---
-            # Simplified query - just card name and set, let the API do the matching
-            # Normalize card name and set name for American English keyboard compatibility
-            normalized_card_name = normalize_to_american_english(card_name)
-            normalized_set_name = normalize_to_american_english(set_name)
-            
+            # Build queries with special handling for cards that share names with brands
             # Non-foil sold query
-            search_query_sold_nonfoil = f"Sorcery {normalized_card_name} {normalized_set_name} -foil"
+            search_query_sold_nonfoil = build_ebay_query(card_name, set_name, is_foil=False)
             print(f"Fetching sold NON-FOIL data for {card_name} in {set_name} (Rarity: {rarity_from_master})...")
             raw_sold_items_nonfoil = fetch_sold_ebay_card_data(search_query_sold_nonfoil)
+            # Filter out unrelated items for brand conflict cards
+            raw_sold_items_nonfoil = filter_items_by_card_name(raw_sold_items_nonfoil, card_name)
             
             # Foil sold query
-            search_query_sold_foil = f"Sorcery {normalized_card_name} {normalized_set_name} foil"
+            search_query_sold_foil = build_ebay_query(card_name, set_name, is_foil=True)
             print(f"Fetching sold FOIL data for {card_name} in {set_name} (Rarity: {rarity_from_master})...")
             raw_sold_items_foil = fetch_sold_ebay_card_data(search_query_sold_foil)
+            # Filter out unrelated items for brand conflict cards
+            raw_sold_items_foil = filter_items_by_card_name(raw_sold_items_foil, card_name)
             
             # Parse sold prices and separate by foil/non-foil
             sold_prices_nonfoil = []
@@ -534,16 +738,20 @@ def generate_card_data_json(output_file_path: str, test_mode: bool = True, test_
 
             # --- Fetch Current Data (Buy API) - Separate queries for foil and non-foil ---
             # Simplified query - just card name and set
-            # Use normalized names (already computed above)
+            # Build queries with special handling for cards that share names with brands
             # Non-foil current query
-            search_query_current_nonfoil = f"Sorcery {normalized_card_name} {normalized_set_name} -foil"
+            search_query_current_nonfoil = build_ebay_query(card_name, set_name, is_foil=False)
             print(f"Fetching current NON-FOIL data for {card_name} in {set_name} (Rarity: {rarity_from_master})...") 
             raw_current_items_nonfoil = fetch_current_ebay_card_data(search_query_current_nonfoil)
+            # Filter out unrelated items for brand conflict cards
+            raw_current_items_nonfoil = filter_items_by_card_name(raw_current_items_nonfoil, card_name)
 
             # Foil current query
-            search_query_current_foil = f"Sorcery {normalized_card_name} {normalized_set_name} foil"
+            search_query_current_foil = build_ebay_query(card_name, set_name, is_foil=True)
             print(f"Fetching current FOIL data for {card_name} in {set_name} (Rarity: {rarity_from_master})...") 
             raw_current_items_foil = fetch_current_ebay_card_data(search_query_current_foil)
+            # Filter out unrelated items for brand conflict cards
+            raw_current_items_foil = filter_items_by_card_name(raw_current_items_foil, card_name)
 
             # Parse current prices and separate by foil/non-foil
             current_prices_nonfoil = []

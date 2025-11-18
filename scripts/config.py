@@ -20,6 +20,9 @@ EBAY_CERT_ID = os.getenv("EBAY_CERT_ID", "")
 # Buy API - Browse endpoint for current and sold listings (using itemSoldFilter for sold)
 EBAY_BUY_API_ENDPOINT = "https://api.ebay.com/buy/browse/v1/item_summary/search"
 
+# Finding API - For completed/sold items (uses App ID, not OAuth)
+EBAY_FINDING_API_ENDPOINT = "https://svcs.ebay.com/services/search/FindingService/v1"
+
 # OAuth Token Endpoints
 EBAY_OAUTH_TOKEN_SANDBOX_URL = "https://api.sandbox.ebay.com/identity/v1/oauth2/token"
 EBAY_OAUTH_TOKEN_PRODUCTION_URL = "https://api.ebay.com/identity/v1/oauth2/token"

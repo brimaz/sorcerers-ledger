@@ -139,9 +139,9 @@ def print_rate_limits(rate_limits_data: dict):
                 print(f"    Reset Time: {reset_time_str}")
                 
                 if percentage >= 90:
-                    print(f"    ⚠️  WARNING: {percentage:.1f}% of rate limit used!")
+                    print(f"    [WARNING] {percentage:.1f}% of rate limit used!")
                 elif percentage >= 75:
-                    print(f"    ⚠️  CAUTION: {percentage:.1f}% of rate limit used")
+                    print(f"    [CAUTION] {percentage:.1f}% of rate limit used")
                 
                 print()
         

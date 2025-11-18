@@ -1,6 +1,6 @@
 ﻿## sorcerers-ledger
 
-This project fetches Sorcery: Contested Realm card data from the TCGplayer API and generates a dynamic HTML page to display card prices with hover-over image functionality. The project follows a more organized structure with separate files for CSS and JavaScript, and dedicated directories for data and scripts.
+This project fetches Sorcery: Contested Realm card data from eBay’s Buy API and generates a dynamic HTML page to display card prices with hover-over image functionality. The project follows an organized structure with separate files for CSS and JavaScript, and dedicated directories for data and scripts.
 
 ### Project Structure
 
@@ -14,10 +14,12 @@ This project fetches Sorcery: Contested Realm card data from the TCGplayer API a
 ├── scripts/
 │   ├── app.js
 │   ├── batch_update.py
+│   ├── check_rate_limits.py
 │   ├── components/
 │   │   ├── CardDisplay.js
 │   │   ├── CardItem.js
 │   │   └── ImageModal.js
+│   ├── ebay_parser.py
 │   ├── parse_cards.py
 ├── style.css
 ├── README.md
@@ -60,13 +62,13 @@ EBAY_CERT_ID=your_cert_id_here
 EBAY_SANDBOX_ENV=False
 ```
 
-The `config.py` file will automatically load these values from the `.env` file.
+The `config.py` file automatically loads these values from the `.env` file and exposes the eBay endpoint constants used throughout the scripts. `batch_update.py` obtains a fresh OAuth token when needed and writes it to the environment so downstream scripts (such as `ebay_parser.py`) can access `EBAY_ACCESS_TOKEN`.
 
 ### Usage
 
 1.  **Generate and Manage Card Data:**
 
-    The `batch_update.py` script is responsible for fetching the latest card data from the TCGplayer API, generating a new `card_data.json` file in the `card-data/` directory, archiving the previous day's `card_data.json` with a timestamp, and deleting any archived files older than 8 days.
+    The `batch_update.py` script is responsible for fetching the latest card data from the eBay Buy API, generating a new `card_data.json` file in the `card-data/` directory, archiving the previous day's `card_data.json` with a timestamp, and deleting any archived files older than 8 days. It also computes current/sold averages per set and rarity before writing output.
 
     **Important:** Make sure your virtual environment is activated before running Python scripts.
 
@@ -77,6 +79,19 @@ The `config.py` file will automatically load these values from the `.env` file.
     ```
 
     For automated daily updates, set up a scheduled task (e.g., using Windows Task Scheduler or cron jobs on Linux) to run `scripts/batch_update.py` daily at 12 AM Eastern Time. Refer to the project documentation for detailed scheduling instructions.
+
+    To inspect eBay API rate limits before long runs, use:
+
+    ```bash
+    python scripts/check_rate_limits.py --api-name=browse --api-context=buy
+    ```
+
+    For targeted experiments against a single card/set combo, run:
+
+    ```bash
+    python scripts/ebay_parser.py
+    ```
+    and enable the test-mode arguments defined in `generate_card_data_json`.
 
 2.  **View the Page:**
 
