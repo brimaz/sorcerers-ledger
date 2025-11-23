@@ -150,7 +150,8 @@ def main():
     cleanup_old_archives(card_data_dir, days_to_keep=8)
     
     # Clean up environment variable
-    del os.environ["EBAY_ACCESS_TOKEN"]
+    if "EBAY_ACCESS_TOKEN" in os.environ:
+        del os.environ["EBAY_ACCESS_TOKEN"]
 
 if __name__ == "__main__":
     main()
