@@ -19,7 +19,7 @@ This project fetches Sorcery: Contested Realm card data from eBay’s Buy API an
 │   │   ├── CardDisplay.js
 │   │   ├── CardItem.js
 │   │   └── ImageModal.js
-│   ├── ebay_parser.py
+│   ├── ebay_bulk_fetch.py
 │   ├── parse_cards.py
 ├── style.css
 ├── README.md
@@ -53,22 +53,23 @@ This project fetches Sorcery: Contested Realm card data from eBay’s Buy API an
 
 ### Configuration
 
-Before running the scripts, create a `.env` file in the project root with your eBay API credentials:
+Before running the scripts, create a `.env` file in the project root with your eBay API credentials and TCGplayer tracking link:
 
 ```env
 EBAY_CLIENT_ID=your_client_id_here
 EBAY_DEV_ID=your_dev_id_here
 EBAY_CERT_ID=your_cert_id_here
 EBAY_SANDBOX_ENV=False
+TCGPLAYER_API_TRACKING_LINK=your_tcgplayer_tracking_link_here
 ```
 
-The `config.py` file automatically loads these values from the `.env` file and exposes the eBay endpoint constants used throughout the scripts. `batch_update.py` obtains a fresh OAuth token when needed and writes it to the environment so downstream scripts (such as `ebay_parser.py`) can access `EBAY_ACCESS_TOKEN`.
+The `config.py` file automatically loads these values from the `.env` file and exposes the eBay endpoint constants used throughout the scripts. `batch_update.py` obtains a fresh OAuth token when needed and writes it to the environment so downstream scripts (such as `ebay_bulk_fetch.py`) can access `EBAY_ACCESS_TOKEN`.
 
 ### Usage
 
 1.  **Generate and Manage Card Data:**
 
-    The `batch_update.py` script is responsible for fetching the latest card data from the eBay Buy API, generating a new `card_data.json` file in the `card-data/` directory, archiving the previous day's `card_data.json` with a timestamp, and deleting any archived files older than 8 days. It also computes current/sold averages per set and rarity before writing output.
+    The `batch_update.py` script is responsible for fetching the latest card data from the eBay Buy API, generating a new `card_data.json` file in the `card-data/` directory, archiving the previous day's `card_data.json` with a timestamp, and deleting any archived files older than 8 days. It uses the bulk fetch approach in `ebay_bulk_fetch.py` which significantly reduces API calls by querying listings by set (e.g., "Sorcery Contested Realm Alpha") rather than individual cards, then filtering and aggregating results client-side. The script computes median prices (more robust to outliers than averages) for current and sold listings per set and rarity before writing output.
 
     **Important:** Make sure your virtual environment is activated before running Python scripts.
 
@@ -86,12 +87,7 @@ The `config.py` file automatically loads these values from the `.env` file and e
     python scripts/check_rate_limits.py --api-name=browse --api-context=buy
     ```
 
-    For targeted experiments against a single card/set combo, run:
-
-    ```bash
-    python scripts/ebay_parser.py
-    ```
-    and enable the test-mode arguments defined in `generate_card_data_json`.
+    The bulk fetch approach typically makes only 2 API calls per set (one for sold listings, one for current listings), dramatically reducing the total number of API calls compared to querying individual cards.
 
 2.  **View the Page:**
 
