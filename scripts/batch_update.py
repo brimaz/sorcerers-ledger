@@ -3,7 +3,7 @@ import json
 import time
 from datetime import datetime, timedelta, timezone
 
-from ebay_parser import generate_card_data_json
+from ebay_bulk_fetch import generate_card_data_json
 from ebay_auth import get_application_access_token
 
 # --- Configuration ---
@@ -109,7 +109,7 @@ def main():
         print("Failed to obtain eBay access token. Exiting.")
         return
 
-    # Set as environment variable for ebay_parser.py
+    # Set as environment variable for eBay parser scripts
     os.environ["EBAY_ACCESS_TOKEN"] = ebay_access_token
 
     # 3. Prepare for card data generation (resume logic will handle skipping complete cards)

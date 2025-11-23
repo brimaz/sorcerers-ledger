@@ -8,3 +8,4 @@ ENV/
 __pycache__/
 ebay_token.json
 card-data/
+testing-scripts/

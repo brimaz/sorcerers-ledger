@@ -36,17 +36,40 @@ createApp({
       isFiltered: true, // Default
       filterPriceChangeStatus: true, // Default
       mobileModalImageUrl: null,
+      mobileModalCardName: null,
+      mobileModalSetName: null,
+      mobileModalIsFoil: false,
       isMobileModalVisible: false,
+      isNavExpanded: false,
       hoverImageUrl: null,
       hoverImagePosition: { top: 0, left: 0 },
       showImageError: false,
       showModalImageError: false,
+      tcgplayerTrackingLink: '', // TCGplayer API tracking link from .env
+      masterCardList: {}, // Master card list with product IDs
     }
   },
   async mounted() {
     const urlParams = new URLSearchParams(window.location.search);
     const viewParam = urlParams.get('view');
     this.isFoilPage = viewParam === 'foil'; // Initialize isFoilPage from URL on mount
+
+    // Load TCGplayer tracking link from server
+    try {
+      const configResponse = await fetch('/api/config');
+      const config = await configResponse.json();
+      this.tcgplayerTrackingLink = config.tcgplayerTrackingLink || '';
+    } catch (error) {
+      console.warn('Could not load TCGplayer tracking link:', error);
+    }
+
+    // Load master card list with product IDs
+    try {
+      const masterCardListResponse = await fetch('card-data/sorcery_card_list.json');
+      this.masterCardList = await masterCardListResponse.json();
+    } catch (error) {
+      console.warn('Could not load master card list:', error);
+    }
 
     await this.loadAndRenderCards();
   },
@@ -92,11 +115,28 @@ createApp({
                 foilLink.classList.toggle('active', this.isFoilPage);
             }
 
+            // Helper function to filter out cards without slugs
+            const filterCardsWithSlugs = (cardArray) => {
+                if (!Array.isArray(cardArray)) return cardArray;
+                return cardArray.filter(card => card && card.slug && card.slug.trim() !== '');
+            };
+
+            // Helper function to filter cards in rarity-grouped data
+            const filterRarityGroupedData = (rarityData) => {
+                if (!rarityData || typeof rarityData !== 'object') return rarityData;
+                const filtered = {};
+                for (const rarity in rarityData) {
+                    filtered[rarity] = filterCardsWithSlugs(rarityData[rarity]);
+                }
+                return filtered;
+            };
+
             for (const setName in data) {
-                this.allSetsCardData[setName] = this.isFoilPage ? data[setName].foil : data[setName].nonFoil;
-                this.allSetsCardDataByName[setName] = this.isFoilPage ? data[setName].foilByName : data[setName].nonFoilByName;
-                this.allSetsCardDataByRarityPrice[setName] = this.isFoilPage ? data[setName].foilByRarityPrice : data[setName].nonFoilByRarityPrice;
-                this.allSetsCardDataByRarityName[setName] = this.isFoilPage ? data[setName].foilByRarityName : data[setName].nonFoilByRarityName;
+                // Filter out cards without slugs from all data structures
+                this.allSetsCardData[setName] = filterCardsWithSlugs(this.isFoilPage ? data[setName].foil : data[setName].nonFoil);
+                this.allSetsCardDataByName[setName] = filterCardsWithSlugs(this.isFoilPage ? data[setName].foilByName : data[setName].nonFoilByName);
+                this.allSetsCardDataByRarityPrice[setName] = filterRarityGroupedData(this.isFoilPage ? data[setName].foilByRarityPrice : data[setName].nonFoilByRarityPrice);
+                this.allSetsCardDataByRarityName[setName] = filterRarityGroupedData(this.isFoilPage ? data[setName].foilByRarityName : data[setName].nonFoilByRarityName);
             }
 
             for (const setName in oldData) {
@@ -207,9 +247,26 @@ createApp({
                   for (const rarity in processedData[setName]) {
                       const threshold = this.RARITY_PRICE_THRESHOLDS[rarity];
                       filteredData[setName][rarity] = processedData[setName][rarity].filter(card => {
+                          // Filter out cards without slugs (no images or links)
+                          if (!card.slug || card.slug.trim() === '') {
+                              return false;
+                          }
                           const price = parseFloat(card.price.replace(',', ''));
                           // Include cards with zero/N/A price since we don't know if they're high value
                           return price === 0 || isNaN(price) || price > threshold;
+                      });
+                  }
+              }
+              processedData = filteredData;
+          } else {
+              // Even if not filtering by price, still filter out cards without slugs
+              const filteredData = {};
+              for (const setName in processedData) {
+                  filteredData[setName] = {};
+                  for (const rarity in processedData[setName]) {
+                      filteredData[setName][rarity] = processedData[setName][rarity].filter(card => {
+                          // Filter out cards without slugs (no images or links)
+                          return card.slug && card.slug.trim() !== '';
                       });
                   }
               }
@@ -237,10 +294,24 @@ createApp({
               const filteredData = {};
               for (const setName in processedData) {
                   filteredData[setName] = processedData[setName].filter(card => {
+                      // Filter out cards without slugs (no images or links)
+                      if (!card.slug || card.slug.trim() === '') {
+                          return false;
+                      }
                       const threshold = this.RARITY_PRICE_THRESHOLDS[card.rarity];
                       const price = parseFloat(card.price.replace(',', ''));
                       // Include cards with zero/N/A price since we don't know if they're high value
                       return price === 0 || isNaN(price) || price > threshold;
+                  });
+              }
+              processedData = filteredData;
+          } else {
+              // Even if not filtering by price, still filter out cards without slugs
+              const filteredData = {};
+              for (const setName in processedData) {
+                  filteredData[setName] = processedData[setName].filter(card => {
+                      // Filter out cards without slugs (no images or links)
+                      return card.slug && card.slug.trim() !== '';
                   });
               }
               processedData = filteredData;
@@ -283,16 +354,86 @@ createApp({
         this.showImageError = true;
         event.target.style.display = 'none';
     },
-    showMobileModal(imageUrl, isFoilPage) {
+    showMobileModal(imageUrl, isFoilPage, cardName, setName) {
         this.mobileModalImageUrl = imageUrl;
-        this.isFoilPage = isFoilPage;
+        this.mobileModalIsFoil = isFoilPage;
+        this.mobileModalCardName = cardName;
+        this.mobileModalSetName = setName;
         this.isMobileModalVisible = true;
         this.showModalImageError = false; // Reset error state when showing new modal
     },
     hideMobileModal() {
         this.isMobileModalVisible = false;
         this.mobileModalImageUrl = null;
+        this.mobileModalCardName = null;
+        this.mobileModalSetName = null;
         this.showModalImageError = false;
+    },
+    toggleNav() {
+        this.isNavExpanded = !this.isNavExpanded;
+    },
+    isMobileOrTablet() {
+        return window.innerWidth <= 1024;
+    },
+    getMobileTcgplayerLink() {
+        if (!this.tcgplayerTrackingLink || !this.mobileModalCardName || !this.mobileModalSetName) {
+            return '#';
+        }
+        
+        const cardInfo = this.masterCardList[this.mobileModalCardName];
+        if (!cardInfo || !cardInfo.sets) {
+            return '#';
+        }
+        
+        const setInfo = cardInfo.sets.find(s => s.set_name === this.mobileModalSetName);
+        if (!setInfo) {
+            return '#';
+        }
+        
+        const cardProductId = this.mobileModalIsFoil 
+            ? (setInfo.foilProductId || setInfo.nonFoilProductId || null)
+            : (setInfo.nonFoilProductId || null);
+        
+        if (!cardProductId) {
+            return '#';
+        }
+        
+        const setSlugMap = {
+            'Alpha': 'alpha',
+            'Beta': 'beta',
+            'Arthurian Legends': 'arthurian-legends',
+            'Arthurian Legends Promo': 'arthurian-legends-promo',
+            'Dust Reward Promos': 'dust-reward-promos',
+            'Dragonlord': 'dragonlord',
+        };
+        const setSlug = setSlugMap[this.mobileModalSetName] || this.mobileModalSetName.toLowerCase().replace(/\s+/g, '-');
+        
+        // Find the card in the current data to get the slug
+        let cardSlug = '';
+        if (this.allSetsCardData[this.mobileModalSetName]) {
+            const card = this.allSetsCardData[this.mobileModalSetName].find(c => c.name === this.mobileModalCardName);
+            if (card && card.slug) {
+                cardSlug = card.slug.replace(/_/g, '-');
+            }
+        }
+        
+        // Fallback to simplified slug if not found
+        if (!cardSlug) {
+            cardSlug = this.mobileModalCardName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+        }
+        
+        const tcgplayerUrl = `https://www.tcgplayer.com/product/${cardProductId}/sorcery-contested-realm-${setSlug}-${cardSlug}?Language=English`;
+        const encodedUrl = encodeURIComponent(tcgplayerUrl);
+        
+        return `${this.tcgplayerTrackingLink}?u=${encodedUrl}`;
+    },
+    getMobileEbayLink() {
+        if (!this.mobileModalCardName || !this.mobileModalSetName) {
+            return '#';
+        }
+        const searchQuery = `Sorcery Contested Realm ${this.mobileModalSetName} ${this.mobileModalCardName}`;
+        const encodedQuery = encodeURIComponent(searchQuery);
+        return `https://www.ebay.com/sch/i.html?_nkw=${encodedQuery}`;
     },
     handleModalImageError(event) {
         // If image fails to load in modal, show "Image Not Available" text
@@ -318,9 +459,27 @@ createApp({
   },
   template: `
     <div>
-        <nav>
-            <a href="#" @click.prevent="setFoilPage(false)" :class="{ active: !isFoilPage }">Non-Foil Overview</a>
-            <a href="#" @click.prevent="setFoilPage(true)" :class="{ active: isFoilPage }">Foil Overview</a>
+        <nav :class="{ 'nav-expanded': isNavExpanded }">
+            <div class="nav-header" v-if="isMobileOrTablet()">
+                <button 
+                   @click.stop.prevent="toggleNav" 
+                   class="nav-hamburger"
+                   :class="{ 'nav-hamburger-active': isNavExpanded }">
+                    <span class="hamburger-line"></span>
+                    <span class="hamburger-line"></span>
+                    <span class="hamburger-line"></span>
+                </button>
+            </div>
+            <div class="nav-links" :class="{ 'nav-links-visible': !isMobileOrTablet() || isNavExpanded }">
+                <a href="#" @click.prevent="setFoilPage(false); isNavExpanded = false" :class="{ active: !isFoilPage }">Non-Foil Overview</a>
+                <a href="#" @click.prevent="setFoilPage(true); isNavExpanded = false" :class="{ active: isFoilPage }">Foil Overview</a>
+                <a href="mailto:contact@sorcerersledger.com" class="contact-email" @click="isNavExpanded = false">contact@sorcerersledger.com</a>
+            </div>
+            <!-- Mobile menu backdrop -->
+            <div v-if="isNavExpanded && isMobileOrTablet()" 
+                 class="nav-backdrop" 
+                 @click="isNavExpanded = false">
+            </div>
         </nav>
         <h1>{{ isFoilPage ? "Sorcery Foil Card Prices Overview" : "Sorcery Non-Foil Card Prices Overview" }}</h1>
 
@@ -348,6 +507,8 @@ createApp({
             :showHoverImage="showHoverImage.bind(this)"
             :hideHoverImage="hideHoverImage.bind(this)"
             :showMobileModal="showMobileModal.bind(this)"
+            :tcgplayerTrackingLink="tcgplayerTrackingLink"
+            :masterCardList="masterCardList"
         />
 
         <div v-if="hoverImageUrl !== null" 
@@ -373,7 +534,7 @@ createApp({
                 <button class="modal-close-button" @click="hideMobileModal">
                     <img src="assets/sl-modal-close.png" alt="Close">
                 </button>
-                <div v-if="mobileModalImageUrl && isFoilPage" class="foil-image-wrapper">
+                <div v-if="mobileModalImageUrl && mobileModalIsFoil" class="foil-image-wrapper">
                     <img :src="mobileModalImageUrl" 
                          alt="Card Image Not Available" 
                          class="modal-image" 
@@ -387,6 +548,22 @@ createApp({
                      @error="handleModalImageError"
                      oncontextmenu="return false;">
                 <div v-if="!mobileModalImageUrl || showModalImageError" class="modal-no-image-text">Image Not Available</div>
+                
+                <!-- Buy buttons for mobile -->
+                <div class="mobile-buy-buttons" v-if="mobileModalCardName">
+                    <a :href="getMobileTcgplayerLink()" 
+                       target="_blank" 
+                       rel="noopener noreferrer"
+                       class="buy-option-button buy-tcgplayer">
+                        Buy on TCGplayer
+                    </a>
+                    <a :href="getMobileEbayLink()" 
+                       target="_blank" 
+                       rel="noopener noreferrer"
+                       class="buy-option-button buy-ebay">
+                        Buy on eBay
+                    </a>
+                </div>
             </div>
         </div>
 

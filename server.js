@@ -1,13 +1,18 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
+require('dotenv').config();
 const { SERVER_PORT } = require('./config.js');
 
 const app = express();
 const PORT = process.env.PORT || SERVER_PORT;
 
-// Serve static files from the root directory
-app.use(express.static(path.join(__dirname)));
+// Define API routes BEFORE static middleware to ensure they're matched first
+app.get('/api/config', (req, res) => {
+  res.json({
+    tcgplayerTrackingLink: process.env.TCGPLAYER_API_TRACKING_LINK || ''
+  });
+});
 
 app.get('/list-files', (req, res) => {
   const targetPath = req.query.path;
@@ -25,6 +30,9 @@ app.get('/list-files', (req, res) => {
     res.json(files);
   });
 });
+
+// Serve static files from the root directory (after API routes)
+app.use(express.static(path.join(__dirname)));
 
 app.listen(PORT, '::', () => {
   console.log(`Server listening on port ${PORT}`);
