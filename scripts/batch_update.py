@@ -78,7 +78,8 @@ def cleanup_old_archives(card_data_dir: str, days_to_keep: int = 8):
     if not os.path.exists(card_data_dir):
         return
     
-    cutoff_date = datetime.now() - timedelta(days=days_to_keep)
+    now = datetime.now()
+    cutoff_date = now - timedelta(days=days_to_keep)
     deleted_count = 0
     
     try:
@@ -86,12 +87,34 @@ def cleanup_old_archives(card_data_dir: str, days_to_keep: int = 8):
             # Only process archived files (card_data_YYYYMMDD_HHMMSS.json), not the main card_data.json
             if filename.startswith("card_data_") and filename.endswith(".json") and filename != "card_data.json":
                 file_path = os.path.join(card_data_dir, filename)
-                file_mtime = datetime.fromtimestamp(os.path.getmtime(file_path))
                 
-                if file_mtime < cutoff_date:
-                    os.remove(file_path)
-                    deleted_count += 1
-                    print(f"Deleted old archive: {filename}")
+                # Extract date from filename: card_data_YYYYMMDD_HHMMSS.json
+                # Format: card_data_20251118_080434.json -> extract "20251118"
+                try:
+                    # Remove prefix "card_data_" and suffix ".json"
+                    date_time_str = filename[10:-5]  # "card_data_" is 10 chars, ".json" is 5 chars
+                    # Split by underscore to get date and time parts
+                    date_str = date_time_str.split('_')[0]  # "20251118"
+                    # Parse the date: YYYYMMDD
+                    file_date_from_name = datetime.strptime(date_str, "%Y%m%d")
+                    
+                    # Also get file modification time for comparison/debugging
+                    file_mtime = datetime.fromtimestamp(os.path.getmtime(file_path))
+                    
+                    # Calculate days since file date
+                    days_old = (now.date() - file_date_from_name.date()).days
+                    
+                    # Delete if the date in the filename is older than the cutoff
+                    # We use < cutoff_date.date() to keep files that are exactly days_to_keep old
+                    # (e.g., if days_to_keep=8, keep files from 8 days ago, delete files from 9+ days ago)
+                    if file_date_from_name.date() < cutoff_date.date():
+                        os.remove(file_path)
+                        deleted_count += 1
+                        print(f"Deleted old archive: {filename} (filename date: {file_date_from_name.date()}, mtime: {file_mtime.date()}, {days_old} days old)")
+                except (ValueError, IndexError) as e:
+                    # If filename doesn't match expected format, skip it
+                    print(f"Warning: Could not parse date from filename '{filename}': {e}")
+                    continue
         
         if deleted_count > 0:
             print(f"Cleaned up {deleted_count} archived file(s) older than {days_to_keep} days.")

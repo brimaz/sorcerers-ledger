@@ -11,7 +11,6 @@ html, body {
 body {
     font-family: Arial, sans-serif;
     background-color: #f4f4f4;
-    padding-bottom: 600px;
 }
 
 #app {
@@ -641,4 +640,99 @@ nav a:hover {
 .mobile-buy-buttons .buy-option-button {
     width: 100%;
     box-sizing: border-box;
+}
+
+/* Disclaimer Footer */
+.disclaimer-footer {
+    margin-top: 60px;
+    padding: 40px 20px;
+    background-color: #f9f9f9;
+    border-top: 2px solid #ddd;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.disclaimer-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    color: #555;
+    line-height: 1.6;
+}
+
+.disclaimer-content h3 {
+    color: #333;
+    font-size: 1em;
+    margin-top: 30px;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 8px;
+}
+
+.disclaimer-content h3:first-child {
+    margin-top: 0;
+}
+
+.disclaimer-content p {
+    margin-bottom: 15px;
+    font-size: 0.85em;
+}
+
+@media (max-width: 768px) {
+    .disclaimer-footer {
+        padding: 30px 15px;
+        margin-top: 40px;
+    }
+    
+    .disclaimer-content h3 {
+        font-size: 0.95em;
+    }
+    
+    .disclaimer-content p {
+        font-size: 0.8em;
+    }
+}
+
+/* Disclaimer Link */
+.disclaimer-link {
+    color: #666;
+    font-size: 0.9em;
+    font-weight: normal;
+    transition: color 0.2s ease;
+}
+
+.disclaimer-link:hover {
+    color: #007bff;
+}
+
+/* Scroll to Top Button */
+.scroll-to-top {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 50px;
+    height: 50px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    font-size: 24px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+    transition: all 0.3s ease;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    padding: 0;
+}
+
+.scroll-to-top:hover {
+    background-color: #0056b3;
+    transform: translateY(-3px);
+    box-shadow: 0 6px 16px rgba(0, 123, 255, 0.4);
+}
+
+.scroll-to-top:active {
+    transform: translateY(-1px);
 }

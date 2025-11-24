@@ -10,6 +10,7 @@ import json
 import os
 import re
 import requests
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 from config import EBAY_BUY_API_ENDPOINT
@@ -24,6 +25,14 @@ from ebay_parser import (
     load_master_card_list,
     RARITIES
 )
+
+# Configure logging with timestamps
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(asctime)s - %(levelname)s] %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger(__name__)
 
 # Cache for exchange rates to avoid repeated API calls
 _exchange_rate_cache = {}
@@ -63,11 +72,11 @@ def get_exchange_rate_to_usd(currency: str) -> float:
             _exchange_rate_cache[currency] = usd_rate
             return usd_rate
         else:
-            print(f"  [WARNING] Could not find USD rate for {currency}, assuming 1.0")
+            logger.warning(f"Could not find USD rate for {currency}, assuming 1.0")
             return 1.0
     except Exception as e:
-        print(f"  [WARNING] Error fetching exchange rate for {currency}: {e}")
-        print(f"  [WARNING] Assuming 1.0 (no conversion)")
+        logger.warning(f"Error fetching exchange rate for {currency}: {e}")
+        logger.warning(f"Assuming 1.0 (no conversion)")
         return 1.0
 
 def convert_price_to_usd(price_value: float, currency: str) -> float:
@@ -94,7 +103,7 @@ def fetch_all_sold_listings(query: str) -> List[dict]:
     """
     ebay_access_token = os.environ.get("EBAY_ACCESS_TOKEN")
     if not ebay_access_token:
-        print("EBAY_ACCESS_TOKEN not found. Please ensure batch_update.py sets it.")
+        logger.error("EBAY_ACCESS_TOKEN not found. Please ensure batch_update.py sets it.")
         return []
     
     headers = {
@@ -103,7 +112,7 @@ def fetch_all_sold_listings(query: str) -> List[dict]:
         "Content-Type": "application/json"
     }
     
-    print(f"Fetching all SOLD listings for: {query}")
+    logger.info(f"Fetching all SOLD listings for: {query}")
     all_items = []
     offset = 0
     limit = 200
@@ -127,32 +136,32 @@ def fetch_all_sold_listings(query: str) -> List[dict]:
         
         if offset == 0:
             total_items = data.get("total", 0)
-            print(f"  Total sold items available: {total_items}")
+            logger.info(f"Total sold items available: {total_items}")
         
         all_items.extend(page_items)
-        print(f"  Fetched page {offset // limit + 1}: {len(page_items)} items (total so far: {len(all_items)})")
+        logger.info(f"Fetched page {offset // limit + 1}: {len(page_items)} items (total so far: {len(all_items)})")
         
         # Check if we've retrieved all available items
         if len(all_items) >= total_items:
-            print(f"  Retrieved all {total_items} items reported by API")
+            logger.info(f"Retrieved all {total_items} items reported by API")
             break
         
         if len(page_items) < limit:
             if len(page_items) == 0:
-                print(f"  No more items available (got 0 items on this page)")
+                logger.info(f"No more items available (got 0 items on this page)")
                 break
             if len(all_items) < total_items * 0.1:
-                print(f"  [WARNING] Got {len(page_items)} items (less than limit {limit}) but API reports {total_items} total")
-                print(f"  [WARNING] eBay Buy API has a maximum return limit (~500-1000 items) even if more exist")
-                print(f"  [WARNING] Stopping pagination - API will not return more results")
+                logger.warning(f"Got {len(page_items)} items (less than limit {limit}) but API reports {total_items} total")
+                logger.warning(f"eBay Buy API has a maximum return limit (~500-1000 items) even if more exist")
+                logger.warning(f"Stopping pagination - API will not return more results")
                 break
         
         offset += limit
     
     if len(all_items) < total_items:
-        print(f"  [NOTE] Fetched {len(all_items)} items but API reports {total_items} total")
-        print(f"  [NOTE] This is a known eBay Buy API limitation - it caps results at ~500-1000 items")
-    print(f"  Total sold items fetched: {len(all_items)}")
+        logger.info(f"Fetched {len(all_items)} items but API reports {total_items} total")
+        logger.info(f"This is a known eBay Buy API limitation - it caps results at ~500-1000 items")
+    logger.info(f"Total sold items fetched: {len(all_items)}")
     return all_items
 
 def fetch_all_current_listings(query: str) -> List[dict]:
@@ -162,7 +171,7 @@ def fetch_all_current_listings(query: str) -> List[dict]:
     """
     ebay_access_token = os.environ.get("EBAY_ACCESS_TOKEN")
     if not ebay_access_token:
-        print("EBAY_ACCESS_TOKEN not found. Please ensure batch_update.py sets it.")
+        logger.error("EBAY_ACCESS_TOKEN not found. Please ensure batch_update.py sets it.")
         return []
     
     headers = {
@@ -171,7 +180,7 @@ def fetch_all_current_listings(query: str) -> List[dict]:
         "Content-Type": "application/json"
     }
     
-    print(f"Fetching all CURRENT listings for: {query}")
+    logger.info(f"Fetching all CURRENT listings for: {query}")
     all_items = []
     offset = 0
     limit = 200
@@ -193,32 +202,32 @@ def fetch_all_current_listings(query: str) -> List[dict]:
         
         if offset == 0:
             total_items = data.get("total", 0)
-            print(f"  Total current items available: {total_items}")
+            logger.info(f"Total current items available: {total_items}")
         
         all_items.extend(page_items)
-        print(f"  Fetched page {offset // limit + 1}: {len(page_items)} items (total so far: {len(all_items)})")
+        logger.info(f"Fetched page {offset // limit + 1}: {len(page_items)} items (total so far: {len(all_items)})")
         
         # Check if we've retrieved all available items
         if len(all_items) >= total_items:
-            print(f"  Retrieved all {total_items} items reported by API")
+            logger.info(f"Retrieved all {total_items} items reported by API")
             break
         
         if len(page_items) < limit:
             if len(page_items) == 0:
-                print(f"  No more items available (got 0 items on this page)")
+                logger.info(f"No more items available (got 0 items on this page)")
                 break
             if len(all_items) < total_items * 0.1:
-                print(f"  [WARNING] Got {len(page_items)} items (less than limit {limit}) but API reports {total_items} total")
-                print(f"  [WARNING] eBay Buy API has a maximum return limit (~500-1000 items) even if more exist")
-                print(f"  [WARNING] Stopping pagination - API will not return more results")
+                logger.warning(f"Got {len(page_items)} items (less than limit {limit}) but API reports {total_items} total")
+                logger.warning(f"eBay Buy API has a maximum return limit (~500-1000 items) even if more exist")
+                logger.warning(f"Stopping pagination - API will not return more results")
                 break
         
         offset += limit
     
     if len(all_items) < total_items:
-        print(f"  [NOTE] Fetched {len(all_items)} items but API reports {total_items} total")
-        print(f"  [NOTE] This is a known eBay Buy API limitation - it caps results at ~500-1000 items")
-    print(f"  Total current items fetched: {len(all_items)}")
+        logger.info(f"Fetched {len(all_items)} items but API reports {total_items} total")
+        logger.info(f"This is a known eBay Buy API limitation - it caps results at ~500-1000 items")
+    logger.info(f"Total current items fetched: {len(all_items)}")
     return all_items
 
 def is_promo_card(title: str, set_name: str) -> bool:
@@ -323,7 +332,7 @@ def filter_and_group_listings(sold_items: List[dict], current_items: List[dict],
     """
     all_items = sold_items + current_items
     total_items = len(all_items)
-    print(f"\nFiltering and grouping {total_items} listings ({len(sold_items)} sold, {len(current_items)} current)...")
+    logger.info(f"Filtering and grouping {total_items} listings ({len(sold_items)} sold, {len(current_items)} current)...")
     
     grouped = {}
     excluded_graded = 0
@@ -337,14 +346,14 @@ def filter_and_group_listings(sold_items: List[dict], current_items: List[dict],
     PROGRESS_INTERVAL = max(100, total_items // 20)  # Update at least 20 times, or every 100 items
     
     # Process sold items
-    print(f"\nProcessing {len(sold_items)} sold items...")
+    logger.info(f"Processing {len(sold_items)} sold items...")
     for idx, item in enumerate(sold_items):
         processed_count += 1
         
         # Show progress periodically
         if processed_count % PROGRESS_INTERVAL == 0 or processed_count == total_items:
             percentage = (processed_count / total_items) * 100
-            print(f"  Progress: {processed_count:,}/{total_items:,} ({percentage:.1f}%) - Matched: {matched:,}, Excluded: {excluded_graded + excluded_keywords + excluded_promo:,}, Unmatched: {unmatched:,}")
+            logger.info(f"Progress: {processed_count:,}/{total_items:,} ({percentage:.1f}%) - Matched: {matched:,}, Excluded: {excluded_graded + excluded_keywords + excluded_promo:,}, Unmatched: {unmatched:,}")
         # Filter out graded cards
         if is_graded_card(item):
             excluded_graded += 1
@@ -398,14 +407,14 @@ def filter_and_group_listings(sold_items: List[dict], current_items: List[dict],
         matched += 1
     
     # Process current items
-    print(f"\nProcessing {len(current_items)} current items...")
+    logger.info(f"Processing {len(current_items)} current items...")
     for idx, item in enumerate(current_items):
         processed_count += 1
         
         # Show progress periodically
         if processed_count % PROGRESS_INTERVAL == 0 or processed_count == total_items:
             percentage = (processed_count / total_items) * 100
-            print(f"  Progress: {processed_count:,}/{total_items:,} ({percentage:.1f}%) - Matched: {matched:,}, Excluded: {excluded_graded + excluded_keywords + excluded_promo:,}, Unmatched: {unmatched:,}")
+            logger.info(f"Progress: {processed_count:,}/{total_items:,} ({percentage:.1f}%) - Matched: {matched:,}, Excluded: {excluded_graded + excluded_keywords + excluded_promo:,}, Unmatched: {unmatched:,}")
         # Filter out graded cards
         if is_graded_card(item):
             excluded_graded += 1
@@ -458,14 +467,14 @@ def filter_and_group_listings(sold_items: List[dict], current_items: List[dict],
         matched += 1
     
     # Final progress update
-    print(f"\n  Progress: {processed_count:,}/{total_items:,} (100.0%) - Complete!")
-    print(f"\n  Filtering Summary:")
-    print(f"    Excluded {excluded_graded:,} graded cards")
-    print(f"    Excluded {excluded_keywords:,} bulk/lot listings")
-    print(f"    Excluded {excluded_promo:,} promo cards")
-    print(f"    Unmatched: {unmatched:,} listings")
-    print(f"    Matched: {matched:,} listings")
-    print(f"    Unique card/set/foil combinations: {len(grouped):,}")
+    logger.info(f"Progress: {processed_count:,}/{total_items:,} (100.0%) - Complete!")
+    logger.info(f"Filtering Summary:")
+    logger.info(f"  Excluded {excluded_graded:,} graded cards")
+    logger.info(f"  Excluded {excluded_keywords:,} bulk/lot listings")
+    logger.info(f"  Excluded {excluded_promo:,} promo cards")
+    logger.info(f"  Unmatched: {unmatched:,} listings")
+    logger.info(f"  Matched: {matched:,} listings")
+    logger.info(f"  Unique card/set/foil combinations: {len(grouped):,}")
     
     return grouped
 
@@ -475,7 +484,7 @@ def calculate_medians(grouped_data: Dict) -> Dict:
     Returns same structure but with medians instead of price lists.
     Median is more robust to outliers than average.
     """
-    print("\nCalculating median prices...")
+    logger.info("Calculating median prices...")
     
     medians = {}
     
@@ -519,7 +528,7 @@ def _generate_card_data_from_medians(medians: Dict, master_card_list: Dict, outp
     """
     Generate card_data.json structure from median prices.
     """
-    print(f"\nGenerating {output_file}...")
+    logger.info(f"Generating {output_file}...")
     
     # Initialize structure
     all_sets_processed_data = {}
@@ -629,14 +638,14 @@ def _generate_card_data_from_medians(medians: Dict, master_card_list: Dict, outp
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(all_sets_processed_data, f, ensure_ascii=False, indent=4)
     
-    print(f"  Saved {output_file}")
-    print(f"  Total sets: {len(all_sets_processed_data)}")
+    logger.info(f"Saved {output_file}")
+    logger.info(f"Total sets: {len(all_sets_processed_data)}")
     
     # Count cards
     total_nonfoil = sum(len(data["nonFoil"]) for data in all_sets_processed_data.values())
     total_foil = sum(len(data["foil"]) for data in all_sets_processed_data.values())
-    print(f"  Total non-foil cards: {total_nonfoil}")
-    print(f"  Total foil cards: {total_foil}")
+    logger.info(f"Total non-foil cards: {total_nonfoil}")
+    logger.info(f"Total foil cards: {total_foil}")
 
 def get_or_refresh_access_token():
     """
@@ -673,18 +682,18 @@ def get_or_refresh_access_token():
                 # Check if token expires more than 5 minutes from now
                 if expires_at > now + timedelta(minutes=5):
                     minutes_remaining = time_until_expiry / 60
-                    print(f"Using existing eBay access token (expires in {minutes_remaining:.1f} minutes).")
+                    logger.info(f"Using existing eBay access token (expires in {minutes_remaining:.1f} minutes).")
                     return token_info["access_token"]
                 else:
                     if time_until_expiry > 0:
-                        print(f"Token expires soon (in {time_until_expiry/60:.1f} minutes), refreshing...")
+                        logger.info(f"Token expires soon (in {time_until_expiry/60:.1f} minutes), refreshing...")
                     else:
-                        print(f"Token has expired ({abs(time_until_expiry)/60:.1f} minutes ago), refreshing...")
+                        logger.info(f"Token has expired ({abs(time_until_expiry)/60:.1f} minutes ago), refreshing...")
         except (KeyError, ValueError, TypeError) as e:
-            print(f"Error reading token file, will refresh: {e}")
+            logger.warning(f"Error reading token file, will refresh: {e}")
     
     # If token doesn't exist or is expired/about to expire, get a new one
-    print("Refreshing eBay access token...")
+    logger.info("Refreshing eBay access token...")
     new_token_info = get_application_access_token()
     if new_token_info:
         # Store new token with expiry time (subtract 1 minute as safety margin for refresh)
@@ -693,7 +702,7 @@ def get_or_refresh_access_token():
         new_token_info["expires_at"] = expires_at.isoformat()
         with open(TOKEN_FILE, 'w') as f:
             json.dump(new_token_info, f, indent=4)
-        print("New eBay access token obtained and saved.")
+        logger.info("New eBay access token obtained and saved.")
         return new_token_info["access_token"]
     return None
 
@@ -708,31 +717,31 @@ def generate_card_data_json(output_file_path: str, test_mode: bool = False, test
         test_card_name: Not used in bulk fetch approach (kept for compatibility)
         test_set_name: Not used in bulk fetch approach (kept for compatibility)
     """
-    print("=" * 80)
-    print("eBay Bulk Fetch Parser - Query by Set Approach")
-    print("=" * 80)
+    logger.info("=" * 80)
+    logger.info("eBay Bulk Fetch Parser - Query by Set Approach")
+    logger.info("=" * 80)
     
     # Get or refresh eBay access token
-    print("\nObtaining eBay access token...")
+    logger.info("Obtaining eBay access token...")
     ebay_access_token = get_or_refresh_access_token()
     if not ebay_access_token:
-        print("Failed to obtain eBay access token. Exiting.")
+        logger.error("Failed to obtain eBay access token. Exiting.")
         return
     
     # Set as environment variable for API calls
     os.environ["EBAY_ACCESS_TOKEN"] = ebay_access_token
     
     # Load master card list
-    print("\nLoading master card list...")
+    logger.info("Loading master card list...")
     master_card_list = load_master_card_list()
     if not master_card_list:
-        print("Failed to load master card list. Exiting.")
+        logger.error("Failed to load master card list. Exiting.")
         # Clean up environment variable
         if "EBAY_ACCESS_TOKEN" in os.environ:
             del os.environ["EBAY_ACCESS_TOKEN"]
         return
     
-    print(f"Loaded {len(master_card_list)} cards from master list")
+    logger.info(f"Loaded {len(master_card_list)} cards from master list")
     
     # Get all unique sets from master card list
     all_sets = set()
@@ -742,18 +751,18 @@ def generate_card_data_json(output_file_path: str, test_mode: bool = False, test
             if set_name:
                 all_sets.add(set_name)
     
-    print(f"\nFound {len(all_sets)} sets: {', '.join(sorted(all_sets))}")
+    logger.info(f"Found {len(all_sets)} sets: {', '.join(sorted(all_sets))}")
     
     # Fetch all listings by set
-    print("\n" + "=" * 80)
-    print("FETCHING ALL LISTINGS BY SET")
-    print("=" * 80)
+    logger.info("=" * 80)
+    logger.info("FETCHING ALL LISTINGS BY SET")
+    logger.info("=" * 80)
     
     all_sold_items = []
     all_current_items = []
     
     for set_name in sorted(all_sets):
-        print(f"\n--- Processing {set_name} ---")
+        logger.info(f"--- Processing {set_name} ---")
         query = f"Sorcery Contested Realm {set_name}"
         
         sold_items = fetch_all_sold_listings(query)
@@ -762,42 +771,42 @@ def generate_card_data_json(output_file_path: str, test_mode: bool = False, test
         all_sold_items.extend(sold_items)
         all_current_items.extend(current_items)
         
-        print(f"  {set_name}: {len(sold_items)} sold + {len(current_items)} current = {len(sold_items) + len(current_items)} items")
+        logger.info(f"{set_name}: {len(sold_items)} sold + {len(current_items)} current = {len(sold_items) + len(current_items)} items")
     
-    print(f"\n" + "=" * 80)
-    print(f"TOTAL ITEMS FETCHED")
-    print("=" * 80)
-    print(f"Total sold items: {len(all_sold_items)}")
-    print(f"Total current items: {len(all_current_items)}")
-    print(f"Grand total: {len(all_sold_items) + len(all_current_items)} items")
+    logger.info("=" * 80)
+    logger.info("TOTAL ITEMS FETCHED")
+    logger.info("=" * 80)
+    logger.info(f"Total sold items: {len(all_sold_items)}")
+    logger.info(f"Total current items: {len(all_current_items)}")
+    logger.info(f"Grand total: {len(all_sold_items) + len(all_current_items)} items")
     
     # Filter and group
-    print("\n" + "=" * 80)
-    print("FILTERING AND GROUPING")
-    print("=" * 80)
+    logger.info("=" * 80)
+    logger.info("FILTERING AND GROUPING")
+    logger.info("=" * 80)
     
     grouped_data = filter_and_group_listings(all_sold_items, all_current_items, master_card_list)
     
     # Calculate medians
-    print("\n" + "=" * 80)
-    print("CALCULATING MEDIAN PRICES")
-    print("=" * 80)
+    logger.info("=" * 80)
+    logger.info("CALCULATING MEDIAN PRICES")
+    logger.info("=" * 80)
     
     medians = calculate_medians(grouped_data)
     
     # Generate card data JSON
-    print("\n" + "=" * 80)
-    print("GENERATING CARD DATA")
-    print("=" * 80)
+    logger.info("=" * 80)
+    logger.info("GENERATING CARD DATA")
+    logger.info("=" * 80)
     
     _generate_card_data_from_medians(medians, master_card_list, output_file_path)
     
-    print("\n" + "=" * 80)
-    print("DONE!")
-    print("=" * 80)
-    print(f"\nGenerated: {output_file_path}")
+    logger.info("=" * 80)
+    logger.info("DONE!")
+    logger.info("=" * 80)
+    logger.info(f"Generated: {output_file_path}")
     total_api_calls = len(all_sets) * 2
-    print(f"Total API calls made: {total_api_calls} ({len(all_sets)} sets × 2 calls per set)")
+    logger.info(f"Total API calls made: {total_api_calls} ({len(all_sets)} sets × 2 calls per set)")
     
     # Clean up environment variable
     if "EBAY_ACCESS_TOKEN" in os.environ:
