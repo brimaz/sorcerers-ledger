@@ -32,6 +32,7 @@ createApp({
           "Ordinary": 0.75,
       },
       sortBy: 'price-desc', // Default sort option
+      priceType: 'low', // Default price type (low, mid, high, market)
       isGrouped: true, // Default
       isFiltered: true, // Default
       filterPriceChangeStatus: true, // Default
@@ -45,6 +46,7 @@ createApp({
       hoverImagePosition: { top: 0, left: 0 },
       showImageError: false,
       showModalImageError: false,
+      isHoverImageHorizontal: false,
       tcgplayerTrackingLink: '', // TCGplayer API tracking link from .env
       productInfoBySet: {}, // Product info loaded from product_info_{setName}.json files
       showScrollToTop: false, // Show scroll-to-top button
@@ -54,6 +56,11 @@ createApp({
     const urlParams = new URLSearchParams(window.location.search);
     const viewParam = urlParams.get('view');
     this.isFoilPage = viewParam === 'foil'; // Initialize isFoilPage from URL on mount
+    
+    const priceTypeParam = urlParams.get('priceType');
+    if (priceTypeParam && ['low', 'mid', 'high', 'market'].includes(priceTypeParam)) {
+      this.priceType = priceTypeParam;
+    }
 
     // Load TCGplayer tracking link from server
     try {
@@ -146,6 +153,7 @@ createApp({
             }
 
             const sortParam = urlParams.get('sort');
+            const priceTypeParam = urlParams.get('priceType');
             const groupRarityParam = urlParams.get('groupRarity');
             const filterValueParam = urlParams.get('filterValue');
             const filterPriceChangeParam = urlParams.get('filterPriceChange');
@@ -181,6 +189,12 @@ createApp({
                 this.sortBy = sortParam;
             } else {
                 this.sortBy = 'price-desc'; // Set default if no param
+            }
+
+            if (priceTypeParam && ['low', 'mid', 'high', 'market'].includes(priceTypeParam)) {
+                this.priceType = priceTypeParam;
+            } else {
+                this.priceType = 'low'; // Set default if no param or invalid
             }
         } catch (error) {
             console.error('Error loading card data:', error);
@@ -272,8 +286,9 @@ createApp({
         }
       }
     },
-    getSortedData(setsData, setsDataByName, setsDataByRarityPrice, setsDataByRarityName, sortOption, isGrouped, isFiltered, isFilteredByPriceChange) {
+    getSortedData(setsData, setsDataByName, setsDataByRarityPrice, setsDataByRarityName, sortOption, isGrouped, isFiltered, isFilteredByPriceChange, priceType) {
       let processedData = {};
+      const priceField = this.getPriceFieldName(priceType);
 
       if (isGrouped) {
           if (sortOption === 'name-asc') {
@@ -289,11 +304,18 @@ createApp({
               for (const setName in setsDataByRarityPrice) {
                   processedData[setName] = {};
                   for (const rarity in setsDataByRarityPrice[setName]) {
-                      processedData[setName][rarity] = [...setsDataByRarityPrice[setName][rarity]].sort((a, b) => parseFloat(a.tcgplayerMarketPrice || 0) - parseFloat(b.tcgplayerMarketPrice || 0));
+                      processedData[setName][rarity] = [...setsDataByRarityPrice[setName][rarity]].sort((a, b) => parseFloat(a[priceField] || 0) - parseFloat(b[priceField] || 0));
                   }
               }
           } else { // price-desc
-              processedData = setsDataByRarityPrice;
+              // Need to re-sort by selected price type
+              processedData = {};
+              for (const setName in setsDataByRarityPrice) {
+                  processedData[setName] = {};
+                  for (const rarity in setsDataByRarityPrice[setName]) {
+                      processedData[setName][rarity] = [...setsDataByRarityPrice[setName][rarity]].sort((a, b) => parseFloat(b[priceField] || 0) - parseFloat(a[priceField] || 0));
+                  }
+              }
           }
 
           if (isFiltered) {
@@ -307,7 +329,7 @@ createApp({
                           if (!card.tcgplayerProductId) {
                               return false;
                           }
-                          const price = parseFloat(card.tcgplayerMarketPrice || 0);
+                          const price = parseFloat(card[priceField] || 0);
                           // Include cards with zero/N/A price since we don't know if they're high value
                           return price === 0 || isNaN(price) || price > threshold;
                       });
@@ -340,10 +362,13 @@ createApp({
               }
           } else if (sortOption === 'price-asc') {
               for (const setName in setsData) {
-                  processedData[setName] = [...setsData[setName]].sort((a, b) => parseFloat(a.tcgplayerMarketPrice || 0) - parseFloat(b.tcgplayerMarketPrice || 0));
+                  processedData[setName] = [...setsData[setName]].sort((a, b) => parseFloat(a[priceField] || 0) - parseFloat(b[priceField] || 0));
               }
           } else { // price-desc
-              processedData = setsData;
+              // Need to re-sort by selected price type
+              for (const setName in setsData) {
+                  processedData[setName] = [...setsData[setName]].sort((a, b) => parseFloat(b[priceField] || 0) - parseFloat(a[priceField] || 0));
+              }
           }
 
           if (isFiltered) {
@@ -355,7 +380,7 @@ createApp({
                           return false;
                       }
                       const threshold = this.RARITY_PRICE_THRESHOLDS[card.rarity] || 0;
-                      const price = parseFloat(card.tcgplayerMarketPrice || 0);
+                      const price = parseFloat(card[priceField] || 0);
                       // Include cards with zero/N/A price since we don't know if they're high value
                       return price === 0 || isNaN(price) || price > threshold;
                   });
@@ -379,6 +404,7 @@ createApp({
     navigateToSort() {
       const url = new URL(window.location);
       url.searchParams.set('sort', this.sortBy);
+      url.searchParams.set('priceType', this.priceType);
       url.searchParams.set('groupRarity', this.isGrouped);
       url.searchParams.set('filterValue', this.isFiltered);
       url.searchParams.set('filterPriceChange', this.filterPriceChangeStatus);
@@ -400,6 +426,7 @@ createApp({
         this.hoverImageUrl = imageUrl;
         this.isFoilPage = isFoilPage;
         this.showImageError = false; // Reset error state when showing new image
+        this.isHoverImageHorizontal = false; // Reset orientation until image loads
     },
     hideHoverImage() {
         this.hoverImageUrl = null;
@@ -409,6 +436,23 @@ createApp({
         // If image fails to load, show "Image Not Available" text
         this.showImageError = true;
         event.target.style.display = 'none';
+    },
+    handleHoverImageLoad(event) {
+        // Check if image is horizontal (width > height)
+        const img = event.target;
+        if (img.naturalWidth && img.naturalHeight) {
+            this.isHoverImageHorizontal = img.naturalWidth > img.naturalHeight;
+        }
+    },
+    getPriceFieldName(priceType) {
+        // Map price type to TCGplayer field name
+        const priceFieldMap = {
+            'low': 'tcgplayerLowPrice',
+            'mid': 'tcgplayerMidPrice',
+            'high': 'tcgplayerHighPrice',
+            'market': 'tcgplayerMarketPrice'
+        };
+        return priceFieldMap[priceType] || 'tcgplayerLowPrice';
     },
     showMobileModal(imageUrl, isFoilPage, cardName, setName) {
         this.mobileModalImageUrl = imageUrl;
@@ -493,14 +537,6 @@ createApp({
         const encodedUrl = encodeURIComponent(tcgplayerUrl);
         return `${this.tcgplayerTrackingLink}?u=${encodedUrl}`;
     },
-    getMobileEbayLink() {
-        if (!this.mobileModalCardName || !this.mobileModalSetName) {
-            return '#';
-        }
-        const searchQuery = `Sorcery Contested Realm ${this.mobileModalSetName} ${this.mobileModalCardName}`;
-        const encodedQuery = encodeURIComponent(searchQuery);
-        return `https://www.ebay.com/sch/i.html?_nkw=${encodedQuery}`;
-    },
     handleModalImageError(event) {
         // If image fails to load in modal, show "Image Not Available" text
         this.showModalImageError = true;
@@ -527,6 +563,7 @@ createApp({
   },
   watch: {
     sortBy: 'navigateToSort',
+    priceType: 'navigateToSort',
     isGrouped: 'navigateToSort',
     isFiltered: 'navigateToSort',
     filterPriceChangeStatus: 'navigateToSort',
@@ -572,6 +609,21 @@ createApp({
                 <option value="name-asc">Name (A to Z)</option>
                 <option value="name-desc">Name (Z to A)</option>
             </select>
+            <label for="price-type-select">Price Type:</label>
+            <div class="price-type-wrapper">
+                <select id="price-type-select" 
+                        v-model="priceType">
+                    <option value="market" title="Not all prices are tracked by market">TCGplayer Market</option>
+                    <option value="low">TCGplayer Low</option>
+                    <option value="mid">TCGplayer Mid</option>
+                    <option value="high">TCGplayer High</option>
+                </select>
+                <div v-if="priceType === 'market' && !isMobileOrTablet()" 
+                     class="price-type-tooltip">
+                    Not all prices are tracked by market
+                </div>
+                <span v-if="priceType === 'market'" class="price-type-disclaimer-mobile">*Not all prices are tracked by market</span>
+            </div>
             <label for="group-by-rarity">Group by Rarity:<input type="checkbox" id="group-by-rarity" v-model="isGrouped"></label>
             <label for="filter-by-value">Show Only High Value Cards:<input type="checkbox" id="filter-by-value" v-model="isFiltered"></label>
             <label for="filter-by-price-change">Price Changes >= $1 (Last Week):<input type="checkbox" id="filter-by-price-change" v-model="filterPriceChangeStatus"></label>
@@ -586,6 +638,7 @@ createApp({
             :filterPriceChangeStatus="filterPriceChangeStatus"
             :allOldSetsCardData="allOldSetsCardData"
             :isGrouped="isGrouped"
+            :priceType="priceType"
             :showHoverImage="showHoverImage.bind(this)"
             :hideHoverImage="hideHoverImage.bind(this)"
             :showMobileModal="showMobileModal.bind(this)"
@@ -595,16 +648,19 @@ createApp({
 
         <div v-if="hoverImageUrl !== null" 
              class="hover-image show-hover-image"
+             :class="{ 'hover-image-horizontal': isHoverImageHorizontal }"
              :style="{ top: hoverImagePosition.top + 'px', left: hoverImagePosition.left + 'px' }">
             <div v-if="hoverImageUrl && isFoilPage" class="foil-image-wrapper">
                 <img :src="hoverImageUrl" 
                      alt="Card Image"
-                     @error="handleImageError">
+                     @error="handleImageError"
+                     @load="handleHoverImageLoad">
             </div>
             <img v-else-if="hoverImageUrl" 
                  :src="hoverImageUrl" 
                  alt="Card Image"
-                 @error="handleImageError">
+                 @error="handleImageError"
+                 @load="handleHoverImageLoad">
             <div v-if="!hoverImageUrl || showImageError" class="hover-image-text">Image Not Available</div>
         </div>
 
@@ -638,12 +694,6 @@ createApp({
                        rel="noopener noreferrer"
                        class="buy-option-button buy-tcgplayer">
                         Buy on TCGplayer
-                    </a>
-                    <a :href="getMobileEbayLink()" 
-                       target="_blank" 
-                       rel="noopener noreferrer"
-                       class="buy-option-button buy-ebay">
-                        Buy on eBay
                     </a>
                 </div>
             </div>
@@ -689,7 +739,8 @@ createApp({
         this.sortBy,
         this.isGrouped,
         this.isFiltered,
-        this.filterPriceChangeStatus
+        this.filterPriceChangeStatus,
+        this.priceType
       );
     },
   },

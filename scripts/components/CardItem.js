@@ -5,6 +5,7 @@ export const CardItem = {
     'isFoilPage',
     'filterPriceChangeStatus',
     'allOldSetsCardData',
+    'priceType',
     'showHoverImage',
     'hideHoverImage',
     'showMobileModal',
@@ -13,14 +14,14 @@ export const CardItem = {
   ],
   data() {
     return {
-      showDesktopBuyModal: false,
-      modalPosition: { top: '50%', left: '50%' },
     };
   },
   template: `
     <li>
       <span class="card-name">
         <a :href="cardLink"
+           :target="isMobileOrTablet() ? '_self' : '_blank'"
+           :rel="isMobileOrTablet() ? '' : 'noopener noreferrer'"
            @mouseover="showHoverImage($event.target, imageUrl, isFoilPage)"
            @mouseleave="hideHoverImage()"
            @click="handleCardClick($event)">
@@ -29,47 +30,24 @@ export const CardItem = {
         <span v-if="showFluctuation" :class="'price-fluctuation-' + fluctuation.colorClass">{{ fluctuation.arrow }}</span>
       </span>
       <span class="card-price">{{ displayPrice }}</span>
-      
-      <!-- Desktop Buy Options Modal -->
-      <div v-if="showDesktopBuyModal && !isMobileOrTablet()" 
-           class="modal-overlay buy-options-modal"
-           @click="hideDesktopBuyModal">
-        <div class="modal-content buy-options-content" 
-             :style="{ top: modalPosition.top, left: modalPosition.left }"
-             @click.stop>
-          <button class="modal-close-button" @click="hideDesktopBuyModal">
-            <img src="assets/sl-modal-close.png" alt="Close">
-          </button>
-          <div class="buy-options-header">
-            <h3>{{ card.name }}</h3>
-            <p class="buy-options-subtitle">{{ setName }}</p>
-          </div>
-          <div class="buy-options-buttons">
-            <a :href="tcgplayerLink" 
-               target="_blank" 
-               rel="noopener noreferrer"
-               class="buy-option-button buy-tcgplayer">
-              Buy on TCGplayer
-            </a>
-            <a :href="ebayLink" 
-               target="_blank" 
-               rel="noopener noreferrer"
-               class="buy-option-button buy-ebay">
-              Buy on eBay
-            </a>
-          </div>
-        </div>
-      </div>
     </li>
   `,
   computed: {
     displayPrice() {
-      // Use TCGplayer market price
-      const price = parseFloat(this.card.tcgplayerMarketPrice || 0);
+      // Use selected price type (low, mid, high, or market)
+      const priceFieldMap = {
+        'low': 'tcgplayerLowPrice',
+        'mid': 'tcgplayerMidPrice',
+        'high': 'tcgplayerHighPrice',
+        'market': 'tcgplayerMarketPrice'
+      };
+      const priceField = priceFieldMap[this.priceType] || 'tcgplayerLowPrice';
+      const priceValue = this.card[priceField] || 0;
+      const price = parseFloat(priceValue);
       if (price === 0 || isNaN(price)) {
         return 'N/A';
       }
-      return `$ ${this.card.tcgplayerMarketPrice}`;
+      return `$ ${priceValue}`;
     },
     imageUrl() {
       // Use TCGplayer image URL from product info
@@ -79,7 +57,8 @@ export const CardItem = {
         // Convert to string for lookup (object keys are strings)
         const productInfo = this.productInfoBySet[this.setName][String(cardProductId)];
         if (productInfo && productInfo.imageUrl) {
-          return productInfo.imageUrl;
+          // Replace "200w" with "in_1000x1000" for larger hover images
+          return productInfo.imageUrl.replace(/200w/g, 'in_1000x1000');
         }
       }
       // Fallback: return null if image is not available
@@ -97,9 +76,12 @@ export const CardItem = {
       return false;
     },
     cardLink() {
-      // On desktop, return # to trigger modal
+      // On desktop, navigate directly to TCGplayer link
       // On mobile/tablet, use # to trigger mobile modal
-      return '#';
+      if (this.isMobileOrTablet()) {
+        return '#';
+      }
+      return this.tcgplayerLink;
     },
     tcgplayerLink() {
       if (!this.tcgplayerTrackingLink || !this.card.tcgplayerProductId) {
@@ -135,15 +117,6 @@ export const CardItem = {
       const encodedUrl = encodeURIComponent(tcgplayerUrl);
       return `${this.tcgplayerTrackingLink}?u=${encodedUrl}`;
     },
-    ebayLink() {
-      // Construct eBay search link
-      // Format: "Sorcery Contested Realm {set} {card name}"
-      const cardName = this.card.name || '';
-      const setName = this.setName || '';
-      const searchQuery = `Sorcery Contested Realm ${setName} ${cardName}`;
-      const encodedQuery = encodeURIComponent(searchQuery);
-      return `https://www.ebay.com/sch/i.html?_nkw=${encodedQuery}`;
-    },
   },
   methods: {
     getPriceFluctuation(currentCard, setName) {
@@ -155,8 +128,17 @@ export const CardItem = {
       const oldCard = oldCardDataForSet.find(card => card.name === currentCard.name && card.condition === currentCard.condition);
 
       if (oldCard) {
-        const currentPrice = parseFloat(currentCard.tcgplayerMarketPrice || 0);
-        const oldPrice = parseFloat(oldCard.tcgplayerMarketPrice || oldCard.price || 0);
+        // Use selected price type for current price
+        const priceFieldMap = {
+          'low': 'tcgplayerLowPrice',
+          'mid': 'tcgplayerMidPrice',
+          'high': 'tcgplayerHighPrice',
+          'market': 'tcgplayerMarketPrice'
+        };
+        const priceField = priceFieldMap[this.priceType] || 'tcgplayerLowPrice';
+        const currentPrice = parseFloat(currentCard[priceField] || 0);
+        // For old price, try to use the same field, fallback to old field names
+        const oldPrice = parseFloat(oldCard[priceField] || oldCard.tcgplayerMarketPrice || oldCard.price || 0);
 
         if (currentPrice > oldPrice) {
           return { arrow: '▲', colorClass: 'price-up', priceChange: currentPrice - oldPrice };
@@ -167,51 +149,12 @@ export const CardItem = {
       return { arrow: '', colorClass: '', priceChange: 0 };
     },
     handleCardClick(event) {
-      event.preventDefault();
-      
       if (this.isMobileOrTablet()) {
-          // On mobile/tablet, show image modal with card info
+          // On mobile/tablet, prevent default and show image modal with card info
+          event.preventDefault();
           this.showMobileModal(this.imageUrl, this.isFoilPage, this.card.name, this.setName);
-      } else {
-          // On desktop, show buy options modal directly below the link
-          const linkElement = event.currentTarget;
-          const linkRect = linkElement.getBoundingClientRect();
-          
-          // Calculate position: top of modal should be right below the link
-          const modalWidth = 400; // max-width of buy-options-content
-          const modalHeight = 250; // approximate height
-          const padding = 20;
-          const gap = 5; // Small gap between link and modal
-          
-          // Position modal below the link, aligned to left edge of link
-          let left = linkRect.left;
-          let top = linkRect.bottom + gap;
-          
-          // Keep modal within viewport bounds horizontally
-          if (left < padding) left = padding;
-          if (left + modalWidth > window.innerWidth - padding) {
-            left = window.innerWidth - modalWidth - padding;
-          }
-          
-          // If modal would go off bottom of screen, position it above the link instead
-          if (top + modalHeight > window.innerHeight - padding) {
-            top = linkRect.top - modalHeight - gap;
-            // If it still doesn't fit above, position at top of viewport
-            if (top < padding) {
-              top = padding;
-            }
-          }
-          
-          this.modalPosition = {
-            top: `${top}px`,
-            left: `${left}px`
-          };
-          
-          this.showDesktopBuyModal = true;
       }
-    },
-    hideDesktopBuyModal() {
-      this.showDesktopBuyModal = false;
+      // On desktop, let the link navigate naturally (no preventDefault needed)
     },
     isMobileOrTablet() {
         return window.innerWidth <= 1024;

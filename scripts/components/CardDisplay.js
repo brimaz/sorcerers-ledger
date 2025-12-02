@@ -10,6 +10,7 @@ export const CardDisplay = {
     'allOldSetsCardData',
     'allSetsCardData',
     'isGrouped',
+    'priceType',
     'showHoverImage',
     'hideHoverImage',
     'showMobileModal',
@@ -38,6 +39,7 @@ export const CardDisplay = {
                     :filterPriceChangeStatus="filterPriceChangeStatus"
                     :allOldSetsCardData="allOldSetsCardData"
                     :isGrouped="isGrouped"
+                    :priceType="priceType"
                     :showHoverImage="showHoverImage"
                     :hideHoverImage="hideHoverImage"
                     :showMobileModal="showMobileModal"
@@ -58,6 +60,7 @@ export const CardDisplay = {
                 :filterPriceChangeStatus="filterPriceChangeStatus"
                 :allOldSetsCardData="allOldSetsCardData"
                 :isGrouped="isGrouped"
+                :priceType="priceType"
                 :showHoverImage="showHoverImage"
                 :hideHoverImage="hideHoverImage"
                 :showMobileModal="showMobileModal"
