@@ -8,22 +8,23 @@ export const CardDisplay = {
     'isFoilPage',
     'filterPriceChangeStatus',
     'allOldSetsCardData',
+    'allSetsCardData',
     'isGrouped',
     'showHoverImage',
     'hideHoverImage',
     'showMobileModal',
     'tcgplayerTrackingLink',
-    'masterCardList',
+    'productInfoBySet',
   ],
   template: `
     <div class="card-columns">
       <div v-for="setName in orderedSetNames" :key="setName" class="card-column">
-        <div v-if="setsDataToRender[setName]" class="card-section">
+        <div v-if="setsDataToRender[setName] || hasSetData(setName)" class="card-section">
           <h2>
             <span v-if="SET_ICONS[setName]" class="set-icon">{{ SET_ICONS[setName] }}</span>
             {{ setName }}
           </h2>
-          <ul v-if="setsDataToRender[setName]">
+          <ul v-if="setsDataToRender[setName] && (isGrouped ? hasCardsInGroupedSet(setName) : setsDataToRender[setName].length > 0)">
             <template v-if="isGrouped">
               <template v-for="rarity in sortedRarities(setsDataToRender[setName])">
                 <h3 class="rarity-subheader">{{ setName }} - {{ rarity }}</h3>
@@ -41,7 +42,7 @@ export const CardDisplay = {
                     :hideHoverImage="hideHoverImage"
                     :showMobileModal="showMobileModal"
                     :tcgplayerTrackingLink="tcgplayerTrackingLink"
-                    :masterCardList="masterCardList"
+                    :productInfoBySet="productInfoBySet"
                   />
                 </template>
                 <li v-else>No cards available for this rarity.</li>
@@ -61,12 +62,12 @@ export const CardDisplay = {
                 :hideHoverImage="hideHoverImage"
                 :showMobileModal="showMobileModal"
                 :tcgplayerTrackingLink="tcgplayerTrackingLink"
-                :masterCardList="masterCardList"
+                :productInfoBySet="productInfoBySet"
               />
             </template>
           </ul>
           <ul v-else>
-            <li>No cards available for this set.</li>
+            <li>{{ getNoCardsMessage(setName) }}</li>
           </ul>
         </div>
       </div>
@@ -85,8 +86,11 @@ export const CardDisplay = {
         'Dragonlord'
       ];
       
-      // Get all set names from setsDataToRender
-      const allSetNames = Object.keys(this.setsDataToRender || {});
+      // Get all set names from both setsDataToRender and allSetsCardData
+      // This ensures we show sets even if they have no cards for the current view
+      const setsFromRender = Object.keys(this.setsDataToRender || {});
+      const setsFromData = Object.keys(this.allSetsCardData || {});
+      const allSetNames = [...new Set([...setsFromRender, ...setsFromData])];
       
       // Sort: first by defined order, then any remaining sets alphabetically
       return setOrder
@@ -97,6 +101,32 @@ export const CardDisplay = {
   methods: {
     sortedRarities(setCardsData) {
       return this.RARITIES.filter(rarity => setCardsData[rarity] && setCardsData[rarity].length > 0);
+    },
+    hasSetData(setName) {
+      // Check if the set exists in the raw data
+      return this.allSetsCardData && this.allSetsCardData[setName] && this.allSetsCardData[setName].length > 0;
+    },
+    hasCardsInGroupedSet(setName) {
+      // Check if there are any cards in the grouped set data
+      if (!this.setsDataToRender[setName]) return false;
+      for (const rarity in this.setsDataToRender[setName]) {
+        if (this.setsDataToRender[setName][rarity] && this.setsDataToRender[setName][rarity].length > 0) {
+          return true;
+        }
+      }
+      return false;
+    },
+    getNoCardsMessage(setName) {
+      // Check if the set has cards for the current view type
+      const hasCardsForCurrentView = this.allSetsCardData && 
+        this.allSetsCardData[setName] && 
+        this.allSetsCardData[setName].length > 0;
+      
+      if (!hasCardsForCurrentView) {
+        // No cards for current view - show specific message
+        return this.isFoilPage ? 'No Foil cards in this set.' : 'No Non-Foil cards in this set.';
+      }
+      return 'No cards available for this set.';
     },
     applyMasonryLayout() {
       this.$nextTick(() => {

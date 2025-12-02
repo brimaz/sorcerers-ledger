@@ -9,7 +9,7 @@ export const CardItem = {
     'hideHoverImage',
     'showMobileModal',
     'tcgplayerTrackingLink',
-    'masterCardList',
+    'productInfoBySet',
   ],
   data() {
     return {
@@ -64,20 +64,25 @@ export const CardItem = {
   `,
   computed: {
     displayPrice() {
-      const price = parseFloat(this.card.price);
+      // Use TCGplayer market price
+      const price = parseFloat(this.card.tcgplayerMarketPrice || 0);
       if (price === 0 || isNaN(price)) {
         return 'N/A';
       }
-      return `$ ${this.card.price}`;
+      return `$ ${this.card.tcgplayerMarketPrice}`;
     },
     imageUrl() {
-      // Use local image based on slug
-      if (this.card.slug && this.card.set_name) {
-        const variant = this.isFoilPage ? 'b_f' : 'b_s';
-        const imagePath = `card-data/images/${this.card.set_name}/${variant}/${this.card.slug}_${variant}.png`;
-        return imagePath;
+      // Use TCGplayer image URL from product info
+      // Get product ID from card data
+      const cardProductId = this.card.tcgplayerProductId;
+      if (cardProductId && this.productInfoBySet && this.productInfoBySet[this.setName]) {
+        // Convert to string for lookup (object keys are strings)
+        const productInfo = this.productInfoBySet[this.setName][String(cardProductId)];
+        if (productInfo && productInfo.imageUrl) {
+          return productInfo.imageUrl;
+        }
       }
-      // Return null if image is not available
+      // Fallback: return null if image is not available
       return null;
     },
     fluctuation() {
@@ -97,30 +102,37 @@ export const CardItem = {
       return '#';
     },
     tcgplayerLink() {
-      // Construct TCGplayer link for the modal
-      if (!this.tcgplayerTrackingLink || !this.card.slug) {
+      if (!this.tcgplayerTrackingLink || !this.card.tcgplayerProductId) {
         return '#';
       }
       
-      // Get card product ID from master card list
-      const cardProductId = this.getCardProductId(this.card.name, this.setName);
-      if (!cardProductId) {
-        return '#';
+      const cardProductId = this.card.tcgplayerProductId;
+      const cardProductIdStr = String(cardProductId);
+      let tcgplayerUrl = '';
+      
+      if (this.productInfoBySet && this.productInfoBySet[this.setName]) {
+        const productInfo = this.productInfoBySet[this.setName][cardProductIdStr];
+        if (productInfo && productInfo.url) {
+          tcgplayerUrl = productInfo.url;
+        }
       }
       
-      // Construct TCGplayer product URL
-      // Format: https://www.tcgplayer.com/product/{code}/sorcery-contested-realm-{set name}-{card name}?Language=English
-      const setSlug = this.getSetSlug(this.setName);
-      // Replace underscores with dashes in card slug to match TCGplayer URL format
-      const cardSlug = (this.card.slug || '').replace(/_/g, '-');
+      if (!tcgplayerUrl) {
+        const setSlug = this.getSetSlug(this.setName);
+        let cardSlug = '';
+        if (this.productInfoBySet && this.productInfoBySet[this.setName]) {
+          const productInfo = this.productInfoBySet[this.setName][cardProductIdStr];
+          if (productInfo && productInfo.cleanName) {
+            cardSlug = productInfo.cleanName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+          }
+        }
+        if (!cardSlug) {
+          cardSlug = (this.card.name || '').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+        }
+        tcgplayerUrl = `https://www.tcgplayer.com/product/${cardProductId}/sorcery-contested-realm-${setSlug}-${cardSlug}?Language=English`;
+      }
       
-      // Construct URL: https://www.tcgplayer.com/product/{cardProductId}/sorcery-contested-realm-{setSlug}-{cardSlug}?Language=English
-      const tcgplayerUrl = `https://www.tcgplayer.com/product/${cardProductId}/sorcery-contested-realm-${setSlug}-${cardSlug}?Language=English`;
-      
-      // Encode the URL
       const encodedUrl = encodeURIComponent(tcgplayerUrl);
-      
-      // Return tracking link with encoded URL
       return `${this.tcgplayerTrackingLink}?u=${encodedUrl}`;
     },
     ebayLink() {
@@ -143,8 +155,8 @@ export const CardItem = {
       const oldCard = oldCardDataForSet.find(card => card.name === currentCard.name && card.condition === currentCard.condition);
 
       if (oldCard) {
-        const currentPrice = parseFloat(currentCard.price.replace(',', ''));
-        const oldPrice = parseFloat(oldCard.price.replace(',', ''));
+        const currentPrice = parseFloat(currentCard.tcgplayerMarketPrice || 0);
+        const oldPrice = parseFloat(oldCard.tcgplayerMarketPrice || oldCard.price || 0);
 
         if (currentPrice > oldPrice) {
           return { arrow: '▲', colorClass: 'price-up', priceChange: currentPrice - oldPrice };
@@ -217,29 +229,11 @@ export const CardItem = {
       return setSlugMap[setName] || setName.toLowerCase().replace(/\s+/g, '-');
     },
     getCardProductId(cardName, setName) {
-      // Look up product ID from master card list
-      if (!this.masterCardList || !cardName || !setName) {
-        return null;
+      // Get product ID directly from card data (stored in tcgplayerProductId)
+      if (this.card && this.card.tcgplayerProductId) {
+        return this.card.tcgplayerProductId;
       }
-      
-      const cardInfo = this.masterCardList[cardName];
-      if (!cardInfo || !cardInfo.sets) {
-        return null;
-      }
-      
-      // Find the set entry for this card
-      const setInfo = cardInfo.sets.find(s => s.set_name === setName);
-      if (!setInfo) {
-        return null;
-      }
-      
-      // Return the appropriate product ID based on whether it's foil or non-foil
-      if (this.isFoilPage) {
-        // For foil page, try foilProductId first, fall back to nonFoilProductId if not available
-        return setInfo.foilProductId || setInfo.nonFoilProductId || null;
-      } else {
-        return setInfo.nonFoilProductId || null;
-      }
+      return null;
     },
   },
 };

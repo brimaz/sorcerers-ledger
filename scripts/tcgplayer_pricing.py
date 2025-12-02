@@ -1,0 +1,358 @@
+"""
+TCGplayer pricing fetcher.
+Fetches pricing data from TCGplayer API using group IDs and maps it to the card data structure.
+"""
+
+import json
+import os
+from typing import Dict
+from tcgplayer_api import get_bearer_token, fetch_group_pricing
+from tcgplayer_product_info import SORCERY_SET_GROUP_IDS
+
+# Rarities (keeping for data structure compatibility)
+RARITIES = ["Unique", "Elite", "Exceptional", "Ordinary"]
+
+TCGPLAYER_PRODUCT_TYPE_ID = 128  # Trading cards product type
+
+
+def _load_existing_card_data(output_file_path: str) -> dict:
+    """Load existing card data from file."""
+    try:
+        with open(output_file_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+    except Exception as e:
+        print(f"Warning: Could not load existing card data: {e}")
+        return {}
+
+
+def _save_card_data_intermediate(data: dict, output_file_path: str):
+    """Save card data to file."""
+    try:
+        with open(output_file_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+    except Exception as e:
+        print(f"Error saving card data: {e}")
+
+
+def _load_product_info_file(set_name: str, product_info_dir: str = "card-data/product-info") -> Dict[int, dict]:
+    """
+    Load product info file for a set and create a mapping by product ID.
+    
+    Args:
+        set_name: Name of the set
+        product_info_dir: Directory containing product info files (default: card-data/product-info)
+        
+    Returns:
+        Dictionary mapping product_id -> product info
+    """
+    safe_set_name = set_name.replace(" ", "_").replace("/", "_")
+    product_info_file = os.path.join(product_info_dir, f"product_info_{safe_set_name}.json")
+    
+    try:
+        with open(product_info_file, 'r', encoding='utf-8') as f:
+            product_info_list = json.load(f)
+        
+        product_map = {}
+        for product in product_info_list:
+            product_id = product.get("productId")
+            if product_id:
+                product_map[product_id] = product
+        
+        return product_map
+    except FileNotFoundError:
+        print(f"  Warning: Product info file not found: {product_info_file}")
+        return {}
+    except Exception as e:
+        print(f"  Warning: Could not load product info file: {e}")
+        return {}
+
+
+def _create_price_mapping_from_group_pricing(pricing_data: dict) -> Dict[int, dict]:
+    """
+    Create a mapping of product ID to pricing information from group pricing response.
+    
+    Args:
+        pricing_data: API response from fetch_group_pricing
+        
+    Returns:
+        Dictionary mapping product_id -> pricing info
+    """
+    price_map = {}
+    
+    if not pricing_data or not pricing_data.get("success"):
+        return price_map
+    
+    results = pricing_data.get("results", [])
+    
+    for price_info in results:
+        product_id = price_info.get("productId")
+        if product_id:
+            price_map[product_id] = {
+                "lowPrice": price_info.get("lowPrice", 0),
+                "midPrice": price_info.get("midPrice", 0),
+                "highPrice": price_info.get("highPrice", 0),
+                "marketPrice": price_info.get("marketPrice", 0),
+                "directLowPrice": price_info.get("directLowPrice"),
+                "subTypeName": price_info.get("subTypeName", ""),  # "Normal" or "Foil"
+            }
+    
+    return price_map
+
+
+def _is_foil_product(sub_type_name: str) -> bool:
+    """Determine if a product is foil based on subTypeName."""
+    return sub_type_name and sub_type_name.lower() == "foil"
+
+
+def _is_preconstructed_product(product_name: str) -> bool:
+    """
+    Determine if a product is related to preconstructed decks.
+    This includes both sealed deck boxes and individual cards from precons.
+    
+    Args:
+        product_name: The product name to check
+        
+    Returns:
+        True if "Preconstructed" is in the product name
+    """
+    if not product_name:
+        return False
+    
+    product_name_lower = product_name.lower()
+    return "preconstructed" in product_name_lower or "pre-constructed" in product_name_lower
+
+
+def _is_sealed_product(product_name: str, set_name: str = "") -> bool:
+    """
+    Determine if a product is a sealed product (not an individual card).
+    Excludes preconstructed products (those go to their own category).
+    
+    Args:
+        product_name: The product name to check
+        set_name: The set name (used for set-specific checks like "Dragonlord Box")
+        
+    Returns:
+        True if the product is sealed (booster box, booster case, booster pack, etc.)
+    """
+    if not product_name:
+        return False
+    
+    product_name_lower = product_name.lower()
+    set_name_lower = set_name.lower() if set_name else ""
+    
+    # Keywords that indicate sealed products (excluding preconstructed)
+    sealed_keywords = [
+        "booster box",
+        "booster box case",
+        "booster case",
+        "booster pack",
+        "pledge pack",
+        "display",
+        "booster display"
+    ]
+    
+    # Check for set-specific sealed products (e.g., "Dragonlord Box" for Dragonlord set)
+    if set_name_lower and f"{set_name_lower} box" in product_name_lower:
+        return True
+    
+    return any(keyword in product_name_lower for keyword in sealed_keywords)
+
+
+def generate_card_data_from_tcgplayer(
+    output_file_path: str,
+    product_type_id: int = 128,
+    test_mode: bool = False,
+    test_set_name: str = None
+):
+    """
+    Generate card data JSON from TCGplayer API pricing data using group IDs.
+    
+    Args:
+        output_file_path: Path to output JSON file
+        product_type_id: Product type ID (default: 128 for Sorcery: Contested Realm)
+        test_mode: If True, only process test set
+        test_set_name: Set name to test (if test_mode is True)
+    """
+    print("Starting TCGplayer card data generation using group IDs...")
+    print(f"Processing {len(SORCERY_SET_GROUP_IDS)} sets\n")
+    
+    # Load existing card data for resume functionality
+    all_sets_processed_data = _load_existing_card_data(output_file_path)
+    
+    # Get bearer token
+    bearer_token = get_bearer_token()
+    if not bearer_token:
+        print("ERROR: Could not obtain TCGplayer bearer token")
+        return
+    
+    # Process each set
+    for set_name, group_id in SORCERY_SET_GROUP_IDS.items():
+        # Test mode filter
+        if test_mode and set_name != test_set_name:
+            continue
+        
+        print(f"\n{'=' * 60}")
+        print(f"Processing set: {set_name} (Group ID: {group_id})")
+        print(f"{'=' * 60}")
+        
+        # Load product info for this set
+        product_info_map = _load_product_info_file(set_name)
+        if not product_info_map:
+            print(f"  Warning: No product info found for {set_name}, skipping...")
+            continue
+        
+        print(f"  Loaded product info for {len(product_info_map)} products")
+        
+        # Fetch pricing data for the group
+        print(f"  Fetching pricing data for group {group_id}...")
+        pricing_data = fetch_group_pricing(group_id, product_type_id, bearer_token)
+        
+        if not pricing_data:
+            print(f"  ERROR: Could not fetch pricing data for {set_name}")
+            continue
+        
+        # Create mapping of product ID to pricing
+        price_map = _create_price_mapping_from_group_pricing(pricing_data)
+        print(f"  Loaded pricing data for {len(price_map)} products")
+        
+        # Initialize set data structure if needed
+        if set_name not in all_sets_processed_data:
+            all_sets_processed_data[set_name] = {
+                "nonFoil": [],
+                "foil": [],
+                "sealed": [],  # Sealed products (booster boxes, preconstructed deck boxes, etc.)
+                "preconstructed": [],  # Individual cards from preconstructed decks
+                "nonFoilByName": [],
+                "foilByName": [],
+                "sealedByName": [],
+                "preconstructedByName": [],
+                "nonFoilByRarityPrice": {r: [] for r in RARITIES},
+                "foilByRarityPrice": {r: [] for r in RARITIES},
+                "nonFoilByRarityName": {r: [] for r in RARITIES},
+                "foilByRarityName": {r: [] for r in RARITIES},
+            }
+        
+        # Process each product with pricing data
+        processed_count = 0
+        for product_id, price_info in price_map.items():
+            # Get product details from product info
+            product_details = product_info_map.get(product_id)
+            if not product_details:
+                print(f"  Warning: Product ID {product_id} not found in product info, skipping...")
+                continue
+            
+            product_name = product_details.get("name", "")
+            if not product_name:
+                continue
+            
+            # Check for preconstructed first (includes both sealed deck boxes and individual cards)
+            is_preconstructed = _is_preconstructed_product(product_name)
+            
+            # Determine if this is a sealed product (booster boxes, cases, packs - excluding preconstructed)
+            is_sealed = _is_sealed_product(product_name, set_name) if not is_preconstructed else False
+            
+            # Determine if this is a foil product (only for individual cards, not sealed or preconstructed)
+            is_foil = _is_foil_product(price_info.get("subTypeName", "")) if not is_sealed and not is_preconstructed else False
+            
+            # Helper function to safely convert price values (handles None)
+            def safe_float(value, default=0.0):
+                """Convert value to float, handling None values."""
+                if value is None:
+                    return default
+                try:
+                    return float(value)
+                except (ValueError, TypeError):
+                    return default
+            
+            # Extract pricing
+            low_price = safe_float(price_info.get("lowPrice"))
+            mid_price = safe_float(price_info.get("midPrice"))
+            high_price = safe_float(price_info.get("highPrice"))
+            market_price = safe_float(price_info.get("marketPrice"))
+            # If marketPrice is 0, fall back to midPrice
+            if market_price == 0.0:
+                market_price = safe_float(price_info.get("midPrice"))
+            
+            # Get rarity from product info (only for individual cards, not sealed)
+            rarity = product_details.get("rarity", "") if not is_sealed else ""
+            
+            # Create card info object (removed rarity and slug fields)
+            card_info = {
+                "name": product_name,
+                "tcgplayerProductId": product_id,  # Store product ID for image lookup
+                "tcgplayerLowPrice": f"{low_price:.2f}",
+                "tcgplayerMidPrice": f"{mid_price:.2f}",
+                "tcgplayerHighPrice": f"{high_price:.2f}",
+                "tcgplayerMarketPrice": f"{market_price:.2f}",
+                "set_name": set_name,
+            }
+            
+            # Route to appropriate category
+            if is_sealed:
+                # Add to sealed products list (booster boxes, deck boxes, etc.)
+                all_sets_processed_data[set_name]["sealed"].append(card_info)
+            elif is_preconstructed:
+                # Add to preconstructed cards list (individual cards from preconstructed decks)
+                all_sets_processed_data[set_name]["preconstructed"].append(card_info)
+            else:
+                # Add to rarity-grouped lists if rarity is available
+                if rarity and rarity in RARITIES:
+                    if is_foil:
+                        all_sets_processed_data[set_name]["foilByRarityPrice"][rarity].append(card_info)
+                        all_sets_processed_data[set_name]["foilByRarityName"][rarity].append(card_info)
+                    else:
+                        all_sets_processed_data[set_name]["nonFoilByRarityPrice"][rarity].append(card_info)
+                        all_sets_processed_data[set_name]["nonFoilByRarityName"][rarity].append(card_info)
+                
+                # Add to appropriate list based on foil/non-foil
+                if is_foil:
+                    all_sets_processed_data[set_name]["foil"].append(card_info)
+                else:
+                    all_sets_processed_data[set_name]["nonFoil"].append(card_info)
+            
+            processed_count += 1
+        
+        print(f"  Processed {processed_count} products for {set_name}")
+    
+    # Final sorting after all data is gathered for each set
+    print("\nSorting card data...")
+    for set_name in all_sets_processed_data:
+        def sort_by_price(cards):
+            # Sort by TCGplayer market price
+            return sorted(cards, key=lambda x: float(x.get("tcgplayerMarketPrice", "0") or 0), reverse=True)
+        
+        def sort_by_name(cards):
+            return sorted(cards, key=lambda x: x["name"])
+        
+        all_sets_processed_data[set_name]["nonFoil"] = sort_by_price(all_sets_processed_data[set_name]["nonFoil"])
+        all_sets_processed_data[set_name]["nonFoilByName"] = sort_by_name(all_sets_processed_data[set_name]["nonFoil"])
+        
+        all_sets_processed_data[set_name]["foil"] = sort_by_price(all_sets_processed_data[set_name]["foil"])
+        all_sets_processed_data[set_name]["foilByName"] = sort_by_name(all_sets_processed_data[set_name]["foil"])
+        
+        all_sets_processed_data[set_name]["sealed"] = sort_by_price(all_sets_processed_data[set_name]["sealed"])
+        all_sets_processed_data[set_name]["sealedByName"] = sort_by_name(all_sets_processed_data[set_name]["sealed"])
+        
+        all_sets_processed_data[set_name]["preconstructed"] = sort_by_price(all_sets_processed_data[set_name]["preconstructed"])
+        all_sets_processed_data[set_name]["preconstructedByName"] = sort_by_name(all_sets_processed_data[set_name]["preconstructed"])
+        
+        for rarity_key in RARITIES:
+            all_sets_processed_data[set_name]["nonFoilByRarityPrice"][rarity_key] = sort_by_price(
+                all_sets_processed_data[set_name]["nonFoilByRarityPrice"][rarity_key]
+            )
+            all_sets_processed_data[set_name]["nonFoilByRarityName"][rarity_key] = sort_by_name(
+                all_sets_processed_data[set_name]["nonFoilByRarityName"][rarity_key]
+            )
+            
+            all_sets_processed_data[set_name]["foilByRarityPrice"][rarity_key] = sort_by_price(
+                all_sets_processed_data[set_name]["foilByRarityPrice"][rarity_key]
+            )
+            all_sets_processed_data[set_name]["foilByRarityName"][rarity_key] = sort_by_name(
+                all_sets_processed_data[set_name]["foilByRarityName"][rarity_key]
+            )
+    
+    # Final save with sorted data
+    _save_card_data_intermediate(all_sets_processed_data, output_file_path)
+    print(f"\nFinal save complete. Card data saved to {output_file_path}")

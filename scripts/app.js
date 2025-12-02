@@ -46,7 +46,7 @@ createApp({
       showImageError: false,
       showModalImageError: false,
       tcgplayerTrackingLink: '', // TCGplayer API tracking link from .env
-      masterCardList: {}, // Master card list with product IDs
+      productInfoBySet: {}, // Product info loaded from product_info_{setName}.json files
       showScrollToTop: false, // Show scroll-to-top button
     }
   },
@@ -64,13 +64,8 @@ createApp({
       console.warn('Could not load TCGplayer tracking link:', error);
     }
 
-    // Load master card list with product IDs
-    try {
-      const masterCardListResponse = await fetch('card-data/sorcery_card_list.json');
-      this.masterCardList = await masterCardListResponse.json();
-    } catch (error) {
-      console.warn('Could not load master card list:', error);
-    }
+    // Load product info files for each set
+    await this.loadProductInfoFiles();
 
     await this.loadAndRenderCards();
     
@@ -100,7 +95,6 @@ createApp({
                     oldData = {};
                 }
             } else {
-                console.log('No archived card data found - this is normal for the first run');
             }
 
             const urlParams = new URLSearchParams(window.location.search);
@@ -123,10 +117,10 @@ createApp({
                 foilLink.classList.toggle('active', this.isFoilPage);
             }
 
-            // Helper function to filter out cards without slugs
-            const filterCardsWithSlugs = (cardArray) => {
+            // Helper function to filter out cards without product IDs
+            const filterCardsWithProductIds = (cardArray) => {
                 if (!Array.isArray(cardArray)) return cardArray;
-                return cardArray.filter(card => card && card.slug && card.slug.trim() !== '');
+                return cardArray.filter(card => card && card.tcgplayerProductId);
             };
 
             // Helper function to filter cards in rarity-grouped data
@@ -134,15 +128,15 @@ createApp({
                 if (!rarityData || typeof rarityData !== 'object') return rarityData;
                 const filtered = {};
                 for (const rarity in rarityData) {
-                    filtered[rarity] = filterCardsWithSlugs(rarityData[rarity]);
+                    filtered[rarity] = filterCardsWithProductIds(rarityData[rarity]);
                 }
                 return filtered;
             };
 
             for (const setName in data) {
-                // Filter out cards without slugs from all data structures
-                this.allSetsCardData[setName] = filterCardsWithSlugs(this.isFoilPage ? data[setName].foil : data[setName].nonFoil);
-                this.allSetsCardDataByName[setName] = filterCardsWithSlugs(this.isFoilPage ? data[setName].foilByName : data[setName].nonFoilByName);
+                // Filter out cards without product IDs from all data structures
+                this.allSetsCardData[setName] = filterCardsWithProductIds(this.isFoilPage ? data[setName].foil : data[setName].nonFoil);
+                this.allSetsCardDataByName[setName] = filterCardsWithProductIds(this.isFoilPage ? data[setName].foilByName : data[setName].nonFoilByName);
                 this.allSetsCardDataByRarityPrice[setName] = filterRarityGroupedData(this.isFoilPage ? data[setName].foilByRarityPrice : data[setName].nonFoilByRarityPrice);
                 this.allSetsCardDataByRarityName[setName] = filterRarityGroupedData(this.isFoilPage ? data[setName].foilByRarityName : data[setName].nonFoilByRarityName);
             }
@@ -224,6 +218,60 @@ createApp({
       }
       return null;
     },
+    async loadProductInfoFiles() {
+      // Get list of product info files from the server
+      // This dynamically discovers all product_info_*.json files
+      try {
+        const response = await fetch('/list-files?path=card-data/product-info');
+        const files = await response.json();
+        
+        // Filter for product_info_*.json files
+        const productInfoFiles = files.filter(file => 
+          file.startsWith('product_info_') && file.endsWith('.json')
+        );
+        
+        for (const filename of productInfoFiles) {
+          try {
+            const fileResponse = await fetch(`card-data/product-info/${filename}`);
+            if (fileResponse.ok) {
+              const productInfo = await fileResponse.json();
+              const productMap = {};
+              for (const product of productInfo) {
+                productMap[String(product.productId)] = product;
+              }
+              const setName = filename
+                .replace('product_info_', '')
+                .replace('.json', '')
+                .replace(/_/g, ' ');
+              
+              this.productInfoBySet[setName] = productMap;
+            }
+          } catch (error) {
+            console.warn(`Failed to load product info from ${filename}:`, error);
+          }
+        }
+      } catch (error) {
+        console.warn('Could not list product info files, trying fallback method:', error);
+        // Fallback: try known set names
+        const fallbackSetNames = ['Alpha', 'Beta', 'Arthurian_Legends', 'Dragonlord', 'Dust_Reward_Promos', 'Arthurian_Legends_Promo'];
+        for (const setName of fallbackSetNames) {
+          try {
+            const response = await fetch(`card-data/product-info/product_info_${setName}.json`);
+            if (response.ok) {
+              const productInfo = await response.json();
+              const productMap = {};
+              for (const product of productInfo) {
+                productMap[String(product.productId)] = product;
+              }
+              const displaySetName = setName.replace(/_/g, ' ');
+              this.productInfoBySet[displaySetName] = productMap;
+            }
+          } catch (err) {
+            // File doesn't exist - skip it
+          }
+        }
+      }
+    },
     getSortedData(setsData, setsDataByName, setsDataByRarityPrice, setsDataByRarityName, sortOption, isGrouped, isFiltered, isFilteredByPriceChange) {
       let processedData = {};
 
@@ -241,7 +289,7 @@ createApp({
               for (const setName in setsDataByRarityPrice) {
                   processedData[setName] = {};
                   for (const rarity in setsDataByRarityPrice[setName]) {
-                      processedData[setName][rarity] = [...setsDataByRarityPrice[setName][rarity]].sort((a, b) => parseFloat(a.price.replace(',', '')) - parseFloat(b.price.replace(',', '')));
+                      processedData[setName][rarity] = [...setsDataByRarityPrice[setName][rarity]].sort((a, b) => parseFloat(a.tcgplayerMarketPrice || 0) - parseFloat(b.tcgplayerMarketPrice || 0));
                   }
               }
           } else { // price-desc
@@ -255,11 +303,11 @@ createApp({
                   for (const rarity in processedData[setName]) {
                       const threshold = this.RARITY_PRICE_THRESHOLDS[rarity];
                       filteredData[setName][rarity] = processedData[setName][rarity].filter(card => {
-                          // Filter out cards without slugs (no images or links)
-                          if (!card.slug || card.slug.trim() === '') {
+                          // Filter out cards without product IDs (no images or links)
+                          if (!card.tcgplayerProductId) {
                               return false;
                           }
-                          const price = parseFloat(card.price.replace(',', ''));
+                          const price = parseFloat(card.tcgplayerMarketPrice || 0);
                           // Include cards with zero/N/A price since we don't know if they're high value
                           return price === 0 || isNaN(price) || price > threshold;
                       });
@@ -267,14 +315,14 @@ createApp({
               }
               processedData = filteredData;
           } else {
-              // Even if not filtering by price, still filter out cards without slugs
+              // Even if not filtering by price, still filter out cards without product IDs
               const filteredData = {};
               for (const setName in processedData) {
                   filteredData[setName] = {};
                   for (const rarity in processedData[setName]) {
                       filteredData[setName][rarity] = processedData[setName][rarity].filter(card => {
-                          // Filter out cards without slugs (no images or links)
-                          return card.slug && card.slug.trim() !== '';
+                          // Filter out cards without product IDs (no images or links)
+                          return card.tcgplayerProductId;
                       });
                   }
               }
@@ -292,7 +340,7 @@ createApp({
               }
           } else if (sortOption === 'price-asc') {
               for (const setName in setsData) {
-                  processedData[setName] = [...setsData[setName]].sort((a, b) => parseFloat(a.price.replace(',', '')) - parseFloat(b.price.replace(',', '')));
+                  processedData[setName] = [...setsData[setName]].sort((a, b) => parseFloat(a.tcgplayerMarketPrice || 0) - parseFloat(b.tcgplayerMarketPrice || 0));
               }
           } else { // price-desc
               processedData = setsData;
@@ -302,24 +350,24 @@ createApp({
               const filteredData = {};
               for (const setName in processedData) {
                   filteredData[setName] = processedData[setName].filter(card => {
-                      // Filter out cards without slugs (no images or links)
-                      if (!card.slug || card.slug.trim() === '') {
+                      // Filter out cards without product IDs (no images or links)
+                      if (!card.tcgplayerProductId) {
                           return false;
                       }
-                      const threshold = this.RARITY_PRICE_THRESHOLDS[card.rarity];
-                      const price = parseFloat(card.price.replace(',', ''));
+                      const threshold = this.RARITY_PRICE_THRESHOLDS[card.rarity] || 0;
+                      const price = parseFloat(card.tcgplayerMarketPrice || 0);
                       // Include cards with zero/N/A price since we don't know if they're high value
                       return price === 0 || isNaN(price) || price > threshold;
                   });
               }
               processedData = filteredData;
           } else {
-              // Even if not filtering by price, still filter out cards without slugs
+              // Even if not filtering by price, still filter out cards without product IDs
               const filteredData = {};
               for (const setName in processedData) {
                   filteredData[setName] = processedData[setName].filter(card => {
-                      // Filter out cards without slugs (no images or links)
-                      return card.slug && card.slug.trim() !== '';
+                      // Filter out cards without product IDs (no images or links)
+                      return card.tcgplayerProductId;
                   });
               }
               processedData = filteredData;
@@ -388,51 +436,61 @@ createApp({
             return '#';
         }
         
-        const cardInfo = this.masterCardList[this.mobileModalCardName];
-        if (!cardInfo || !cardInfo.sets) {
-            return '#';
+        // Find the card in the current data to get the product ID
+        // Note: allSetsCardData is already filtered by isFoilPage, so we need to check the raw data
+        let cardProductId = null;
+        // We need to access the raw card data to find the card
+        // Since allSetsCardData is filtered by current isFoilPage, we need to check both arrays
+        // For now, we'll search in the current view's data
+        const card = this.allSetsCardData[this.mobileModalSetName]?.find(c => c.name === this.mobileModalCardName);
+        if (card && card.tcgplayerProductId) {
+            cardProductId = card.tcgplayerProductId;
         }
-        
-        const setInfo = cardInfo.sets.find(s => s.set_name === this.mobileModalSetName);
-        if (!setInfo) {
-            return '#';
-        }
-        
-        const cardProductId = this.mobileModalIsFoil 
-            ? (setInfo.foilProductId || setInfo.nonFoilProductId || null)
-            : (setInfo.nonFoilProductId || null);
         
         if (!cardProductId) {
             return '#';
         }
         
-        const setSlugMap = {
-            'Alpha': 'alpha',
-            'Beta': 'beta',
-            'Arthurian Legends': 'arthurian-legends',
-            'Arthurian Legends Promo': 'arthurian-legends-promo',
-            'Dust Reward Promos': 'dust-reward-promos',
-            'Dragonlord': 'dragonlord',
-        };
-        const setSlug = setSlugMap[this.mobileModalSetName] || this.mobileModalSetName.toLowerCase().replace(/\s+/g, '-');
+        // Convert to string for lookup (object keys are strings)
+        const cardProductIdStr = String(cardProductId);
         
-        // Find the card in the current data to get the slug
-        let cardSlug = '';
-        if (this.allSetsCardData[this.mobileModalSetName]) {
-            const card = this.allSetsCardData[this.mobileModalSetName].find(c => c.name === this.mobileModalCardName);
-            if (card && card.slug) {
-                cardSlug = card.slug.replace(/_/g, '-');
+        // Get product info to construct proper URL
+        let tcgplayerUrl = '';
+        if (this.productInfoBySet && this.productInfoBySet[this.mobileModalSetName]) {
+            const productInfo = this.productInfoBySet[this.mobileModalSetName][cardProductIdStr];
+            if (productInfo && productInfo.url) {
+                tcgplayerUrl = productInfo.url;
             }
         }
         
-        // Fallback to simplified slug if not found
-        if (!cardSlug) {
-            cardSlug = this.mobileModalCardName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+        // Fallback: construct URL from product ID and card name
+        if (!tcgplayerUrl) {
+            const setSlugMap = {
+                'Alpha': 'alpha',
+                'Beta': 'beta',
+                'Arthurian Legends': 'arthurian-legends',
+                'Arthurian Legends Promo': 'arthurian-legends-promo',
+                'Dust Reward Promos': 'dust-reward-promos',
+                'Dragonlord': 'dragonlord',
+            };
+            const setSlug = setSlugMap[this.mobileModalSetName] || this.mobileModalSetName.toLowerCase().replace(/\s+/g, '-');
+            
+            // Use cleanName from product info or fallback to card name
+            let cardSlug = '';
+            if (this.productInfoBySet && this.productInfoBySet[this.mobileModalSetName]) {
+                const productInfo = this.productInfoBySet[this.mobileModalSetName][cardProductIdStr];
+                if (productInfo && productInfo.cleanName) {
+                    cardSlug = productInfo.cleanName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+                }
+            }
+            if (!cardSlug) {
+                cardSlug = this.mobileModalCardName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+            }
+            
+            tcgplayerUrl = `https://www.tcgplayer.com/product/${cardProductId}/sorcery-contested-realm-${setSlug}-${cardSlug}?Language=English`;
         }
         
-        const tcgplayerUrl = `https://www.tcgplayer.com/product/${cardProductId}/sorcery-contested-realm-${setSlug}-${cardSlug}?Language=English`;
         const encodedUrl = encodeURIComponent(tcgplayerUrl);
-        
         return `${this.tcgplayerTrackingLink}?u=${encodedUrl}`;
     },
     getMobileEbayLink() {
@@ -521,6 +579,7 @@ createApp({
 
         <CardDisplay
             :setsDataToRender="setsDataToRender"
+            :allSetsCardData="allSetsCardData"
             :RARITIES="RARITIES"
             :SET_ICONS="SET_ICONS"
             :isFoilPage="isFoilPage"
@@ -531,7 +590,7 @@ createApp({
             :hideHoverImage="hideHoverImage.bind(this)"
             :showMobileModal="showMobileModal.bind(this)"
             :tcgplayerTrackingLink="tcgplayerTrackingLink"
-            :masterCardList="masterCardList"
+            :productInfoBySet="productInfoBySet"
         />
 
         <div v-if="hoverImageUrl !== null" 
