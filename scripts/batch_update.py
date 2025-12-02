@@ -11,6 +11,17 @@ from tcgplayer_product_info import generate_product_info_files
 # from ebay_bulk_fetch import generate_card_data_json
 # from ebay_auth import get_application_access_token
 
+
+def log_message(message: str):
+    """
+    Print a log message with timestamp in format [YYYY-MM-DD HH:MM:SS].
+    
+    Args:
+        message: The message to log
+    """
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"[{timestamp}] {message}")
+
 # --- Configuration ---
 # TCGplayer Configuration
 TCGPLAYER_PRODUCT_TYPE_ID = 128  # Trading cards product type (Sorcery: Contested Realm product type ID)
@@ -120,16 +131,16 @@ def cleanup_old_archives(card_data_dir: str, days_to_keep: int = 8):
                     if file_date_from_name.date() < cutoff_date.date():
                         os.remove(file_path)
                         deleted_count += 1
-                        print(f"Deleted old archive: {filename} (filename date: {file_date_from_name.date()}, mtime: {file_mtime.date()}, {days_old} days old)")
+                        log_message(f"Deleted old archive: {filename} (filename date: {file_date_from_name.date()}, mtime: {file_mtime.date()}, {days_old} days old)")
                 except (ValueError, IndexError) as e:
                     # If filename doesn't match expected format, skip it
-                    print(f"Warning: Could not parse date from filename '{filename}': {e}")
+                    log_message(f"Warning: Could not parse date from filename '{filename}': {e}")
                     continue
         
         if deleted_count > 0:
-            print(f"Cleaned up {deleted_count} archived file(s) older than {days_to_keep} days.")
+            log_message(f"Cleaned up {deleted_count} archived file(s) older than {days_to_keep} days.")
     except Exception as e:
-        print(f"Error cleaning up old archives: {e}")
+        log_message(f"Error cleaning up old archives: {e}")
 
 def main():
     # 1. TCGplayer token management is handled automatically in tcgplayer_api.py
@@ -142,9 +153,9 @@ def main():
     
     if os.path.exists(output_file):
         modified_time = datetime.fromtimestamp(os.path.getmtime(output_file))
-        print(f"Found existing card_data.json (last updated {modified_time.strftime('%Y-%m-%d %H:%M:%S')}). Will resume from existing data.")
+        log_message(f"Found existing card_data.json (last updated {modified_time.strftime('%Y-%m-%d %H:%M:%S')}). Will resume from existing data.")
     else:
-        print("card_data.json not found. Starting fresh update.")
+        log_message("card_data.json not found. Starting fresh update.")
     
     # 4. Archive existing card_data.json only if it's from a previous day
     # (Don't archive if resuming same-day run)
@@ -162,30 +173,36 @@ def main():
             
             # Rename current file to archived name
             os.rename(output_file, archive_file)
-            print(f"Archived previous day's card_data.json to {archive_file}")
+            log_message(f"Archived previous day's card_data.json to {archive_file}")
         else:
-            print(f"Resuming from existing card_data.json (same day, last updated {modified_time.strftime('%Y-%m-%d %H:%M:%S')})")
+            log_message(f"Resuming from existing card_data.json (same day, last updated {modified_time.strftime('%Y-%m-%d %H:%M:%S')})")
     
     # 5. Generate product info files from TCGplayer catalog API (only if they don't exist)
-    print("\n" + "=" * 60)
-    print("Checking product info files from TCGplayer catalog...")
-    print("=" * 60)
-    print("(Product info files are only generated if they don't already exist)")
+    log_message("")
+    log_message("=" * 60)
+    log_message("Checking product info files from TCGplayer catalog...")
+    log_message("=" * 60)
+    log_message("(Product info files are only generated if they don't already exist)")
     product_info_dir = os.path.join(card_data_dir, "product-info")
     generate_product_info_files(product_info_dir)
-    print("Product info files check complete.")
+    log_message("Product info files check complete.")
     
     # 6. Generate card data from TCGplayer (processes all sets defined in group ID mapping)
-    print("\n" + "=" * 60)
-    print("Starting TCGplayer card data parsing...")
-    print("=" * 60)
+    log_message("")
+    log_message("=" * 60)
+    log_message("Starting TCGplayer card data parsing...")
+    log_message("=" * 60)
     generate_card_data_from_tcgplayer(
         output_file,
         product_type_id=TCGPLAYER_PRODUCT_TYPE_ID,
         test_mode=TEST_MODE,
         test_set_name=TEST_SET_NAME
     )
-    print("TCGplayer card data parsing complete.")
+    log_message("TCGplayer card data parsing complete.")
+    
+    # Log successful completion
+    if os.path.exists(output_file):
+        log_message(f"New card_data.json generated at {output_file}")
     
     # 7. Clean up old archived files (older than 8 days)
     cleanup_old_archives(card_data_dir, days_to_keep=8)
