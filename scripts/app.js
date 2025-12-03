@@ -699,6 +699,9 @@ createApp({
                 <p>
                     Links on Sorcerer's Ledger to card vendors like TCGplayer are affiliate links. If you make a purchase through these links, we may earn a commission at no extra cost to you. This helps support our site.
                 </p>
+                <p style="margin-top: 20px; font-size: 0.9em; color: #666;">
+                    Copyright © Legendary Ledgers LLC, 2025
+                </p>
             </div>
         </footer>
 
