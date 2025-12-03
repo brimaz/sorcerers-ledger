@@ -696,8 +696,8 @@ nav a:hover {
     box-sizing: border-box;
 }
 
-/* Disclaimer Footer */
-.disclaimer-footer {
+/* Affiliate Disclosure Footer */
+.affiliate-disclosure-footer {
     margin-top: 60px;
     padding: 40px 20px;
     background-color: #f9f9f9;
@@ -706,42 +706,38 @@ nav a:hover {
     box-sizing: border-box;
 }
 
-.disclaimer-content {
+.affiliate-disclosure-content {
     max-width: 1200px;
     margin: 0 auto;
     color: #555;
     line-height: 1.6;
 }
 
-.disclaimer-content h3 {
+.affiliate-disclosure-content h3 {
     color: #333;
     font-size: 1em;
-    margin-top: 30px;
+    margin-top: 0;
     margin-bottom: 15px;
     border-bottom: 1px solid #ddd;
     padding-bottom: 8px;
 }
 
-.disclaimer-content h3:first-child {
-    margin-top: 0;
-}
-
-.disclaimer-content p {
+.affiliate-disclosure-content p {
     margin-bottom: 15px;
     font-size: 0.85em;
 }
 
 @media (max-width: 768px) {
-    .disclaimer-footer {
+    .affiliate-disclosure-footer {
         padding: 30px 15px;
         margin-top: 40px;
     }
     
-    .disclaimer-content h3 {
+    .affiliate-disclosure-content h3 {
         font-size: 0.95em;
     }
     
-    .disclaimer-content p {
+    .affiliate-disclosure-content p {
         font-size: 0.8em;
     }
 }

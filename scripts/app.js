@@ -546,13 +546,6 @@ createApp({
         this.isFoilPage = isFoil;
         this.navigateToSort();
     },
-    scrollToDisclaimer() {
-        const footer = document.querySelector('.disclaimer-footer');
-        if (footer) {
-            footer.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-        this.isNavExpanded = false; // Close mobile nav if open
-    },
     scrollToTop() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     },
@@ -590,7 +583,8 @@ createApp({
             <div class="nav-links" :class="{ 'nav-links-visible': !isMobileOrTablet() || isNavExpanded }">
                 <a href="#" @click.prevent="setFoilPage(false); isNavExpanded = false" :class="{ active: !isFoilPage }">Non-Foil Overview</a>
                 <a href="#" @click.prevent="setFoilPage(true); isNavExpanded = false" :class="{ active: isFoilPage }">Foil Overview</a>
-                <a href="#" @click.prevent="scrollToDisclaimer(); isNavExpanded = false" class="disclaimer-link">Disclaimer</a>
+                <a href="terms-of-service.html" class="disclaimer-link" @click="isNavExpanded = false">Terms of Service</a>
+                <a href="privacy-policy.html" class="disclaimer-link" @click="isNavExpanded = false">Privacy Policy</a>
                 <a href="mailto:contact@sorcerersledger.com" class="contact-email" @click="isNavExpanded = false">contact@sorcerersledger.com</a>
             </div>
             <!-- Mobile menu backdrop -->
@@ -699,22 +693,11 @@ createApp({
             </div>
         </div>
 
-        <footer class="disclaimer-footer">
-            <div class="disclaimer-content">
-                <h3>Ownership and Control of Sorcerer's Ledger</h3>
+        <footer class="affiliate-disclosure-footer">
+            <div class="affiliate-disclosure-content">
+                <h3>Affiliate Disclosure</h3>
                 <p>
-                    Sorcerer's Ledger is independently owned, operated, and controlled by Legendary Ledgers LLC. All proprietary software, algorithms, website design, and original text content (excluding the IP listed below) are the exclusive property of Legendary Ledgers LLC and are protected by copyright law.
-                </p>
-                
-                <h3>Third-Party Intellectual Property</h3>
-                <p>
-                    Sorcerer's Ledger is an independent fan project and is in no way affiliated with or endorsed by Erik's Curiosa Limited.
-                </p>
-                <p>
-                    Erik's Curiosa Limited®, Sorcery: Contested Realm™, and associated set names are trademarks of Erik's Curiosa Limited. Sorcery: Contested Realm characters, card names, logos, and game content are the copyrighted property of Erik's Curiosa Limited.
-                </p>
-                <p>
-                    The individual artists who create illustrations for Sorcery: Contested Realm retain the copyright to their original artwork. This policy, established by Erik's Curiosa Limited, allows artists to sell prints, playmats, and other merchandise featuring their work. While Erik's Curiosa Limited owns the overall intellectual property for the game—including card designs, rules, and official website content—the copyright for specific illustrations belongs to the original artists who created them.
+                    Links on Sorcerer's Ledger to card vendors like TCGplayer are affiliate links. If you make a purchase through these links, we may earn a commission at no extra cost to you. This helps support our site.
                 </p>
             </div>
         </footer>
