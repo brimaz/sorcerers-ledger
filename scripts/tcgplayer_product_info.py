@@ -7,6 +7,7 @@ import json
 import os
 from typing import Dict, List, Set
 from tcgplayer_api import get_bearer_token, fetch_product_details, fetch_group_pricing
+from shared_logger import logger
 
 # Sorcery set to group ID mappings
 SORCERY_SET_GROUP_IDS = {
@@ -36,7 +37,7 @@ def collect_product_ids_from_group_pricing(group_id: int, product_type_id: int, 
     """
     product_ids = set()
     
-    print(f"  Fetching pricing data for group {group_id}...")
+    logger.info(f"Fetching pricing data for group {group_id}...")
     pricing_data = fetch_group_pricing(group_id, product_type_id, bearer_token)
     
     if pricing_data and pricing_data.get("success"):
@@ -45,9 +46,9 @@ def collect_product_ids_from_group_pricing(group_id: int, product_type_id: int, 
             product_id = price_info.get("productId")
             if product_id:
                 product_ids.add(product_id)
-        print(f"  Found {len(product_ids)} unique product IDs in pricing data")
+        logger.info(f"Found {len(product_ids)} unique product IDs in pricing data")
     else:
-        print(f"  Warning: Could not fetch pricing data for group {group_id}")
+        logger.warning(f"Could not fetch pricing data for group {group_id}")
     
     return product_ids
 
@@ -72,7 +73,7 @@ def fetch_products_in_batches(product_ids: List[int], bearer_token: str, batch_s
         end_idx = min(start_idx + batch_size, len(product_ids))
         batch_ids = product_ids[start_idx:end_idx]
         
-        print(f"  Fetching product details batch {batch_num + 1}/{total_batches} ({len(batch_ids)} products)...")
+        logger.info(f"Fetching product details batch {batch_num + 1}/{total_batches} ({len(batch_ids)} products)...")
         
         product_data = fetch_product_details(batch_ids, bearer_token)
         if product_data and product_data.get("success"):
@@ -126,9 +127,9 @@ def fetch_products_in_batches(product_ids: List[int], bearer_token: str, batch_s
                         "url": product.get("url", ""),  # TCGplayer product URL
                         "rarity": rarity  # Rarity from extended fields
                     }
-            print(f"    ✓ Retrieved {len(results)} products")
+            logger.info(f"✓ Retrieved {len(results)} products")
         else:
-            print(f"    ✗ Failed to fetch batch")
+            logger.warning(f"✗ Failed to fetch batch")
     
     return product_map
 
@@ -140,13 +141,13 @@ def generate_product_info_files(output_dir: str = "card-data/product-info"):
     Args:
         output_dir: Directory to save product info JSON files (default: card-data/product-info)
     """
-    print("Starting TCGplayer product info generation using group IDs...")
-    print(f"Processing {len(SORCERY_SET_GROUP_IDS)} sets\n")
+    logger.info("Starting TCGplayer product info generation using group IDs...")
+    logger.info(f"Processing {len(SORCERY_SET_GROUP_IDS)} sets\n")
     
     # Get bearer token
     bearer_token = get_bearer_token()
     if not bearer_token:
-        print("ERROR: Could not obtain TCGplayer bearer token")
+        logger.error("Could not obtain TCGplayer bearer token")
         return
     
     # Create output directory if it doesn't exist
@@ -154,17 +155,18 @@ def generate_product_info_files(output_dir: str = "card-data/product-info"):
     
     # Process each set
     for set_name, group_id in SORCERY_SET_GROUP_IDS.items():
-        print(f"\n{'=' * 60}")
-        print(f"Processing set: {set_name} (Group ID: {group_id})")
-        print(f"{'=' * 60}")
+        print()  # Blank line
+        logger.info("=" * 60)
+        logger.info(f"Processing set: {set_name} (Group ID: {group_id})")
+        logger.info("=" * 60)
         
         # Check if product info file already exists
         safe_set_name = set_name.replace(" ", "_").replace("/", "_")
         output_file = os.path.join(output_dir, f"product_info_{safe_set_name}.json")
         
         if os.path.exists(output_file):
-            print(f"  ✓ Product info file already exists: {output_file}")
-            print(f"  Skipping generation (product info doesn't change frequently)")
+            logger.info(f"✓ Product info file already exists: {output_file}")
+            logger.info(f"Skipping generation (product info doesn't change frequently)")
             continue
         
         # Collect product IDs from pricing data
@@ -173,10 +175,10 @@ def generate_product_info_files(output_dir: str = "card-data/product-info"):
         )
         
         if not product_ids_set:
-            print(f"  Warning: No product IDs found for {set_name}, skipping...")
+            logger.warning(f"No product IDs found for {set_name}, skipping...")
             continue
         
-        print(f"  Total unique product IDs: {len(product_ids_set)}")
+        logger.info(f"Total unique product IDs: {len(product_ids_set)}")
         
         # Convert set to list for batch processing
         product_ids_list = list(product_ids_set)
@@ -185,7 +187,7 @@ def generate_product_info_files(output_dir: str = "card-data/product-info"):
         product_map = fetch_products_in_batches(product_ids_list, bearer_token)
         
         if not product_map:
-            print(f"  ERROR: No product data retrieved for {set_name}")
+            logger.error(f"No product data retrieved for {set_name}")
             continue
         
         # Create product info array (sorted by product ID for consistency)
@@ -194,17 +196,19 @@ def generate_product_info_files(output_dir: str = "card-data/product-info"):
             if product_id in product_map:
                 product_info_list.append(product_map[product_id])
             else:
-                print(f"  Warning: Product ID {product_id} not found in API response")
+                logger.warning(f"Product ID {product_id} not found in API response")
         
         # Save to JSON file
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(product_info_list, f, ensure_ascii=False, indent=2)
         
-        print(f"\n✓ Saved {len(product_info_list)} products to {output_file}")
+        print()  # Blank line
+        logger.info(f"✓ Saved {len(product_info_list)} products to {output_file}")
     
-    print(f"\n{'=' * 60}")
-    print("Product info generation complete!")
-    print(f"{'=' * 60}")
+    print()  # Blank line
+    logger.info("=" * 60)
+    logger.info("Product info generation complete!")
+    logger.info("=" * 60)
 
 
 if __name__ == "__main__":

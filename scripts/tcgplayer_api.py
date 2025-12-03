@@ -8,6 +8,7 @@ import json
 import requests
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
+from shared_logger import logger
 
 # Load environment variables
 load_dotenv()
@@ -37,7 +38,7 @@ def get_bearer_token(force_refresh=False):
         Bearer token string, or None if failed
     """
     if not PUBLIC_KEY or not PRIVATE_KEY:
-        print("ERROR: TCGPLAYER_API_PUBLIC_KEY and TCGPLAYER_API_PRIVATE_KEY must be set in .env file")
+        logger.error("TCGPLAYER_API_PUBLIC_KEY and TCGPLAYER_API_PRIVATE_KEY must be set in .env file")
         return None
     
     # Check if token file exists and is still valid
@@ -69,18 +70,18 @@ def get_bearer_token(force_refresh=False):
                 # Check if token expires more than 5 minutes from now
                 if expires_at > now + timedelta(minutes=5):
                     minutes_remaining = time_until_expiry / 60
-                    print(f"Using existing TCGplayer bearer token (expires in {minutes_remaining:.1f} minutes, at {expires_at.isoformat()}).")
+                    logger.info(f"Using existing TCGplayer bearer token (expires in {minutes_remaining:.1f} minutes, at {expires_at.isoformat()}).")
                     return token_info.get("access_token")
                 else:
                     if time_until_expiry > 0:
-                        print(f"Token expires soon (in {time_until_expiry/60:.1f} minutes, at {expires_at.isoformat()}), refreshing...")
+                        logger.info(f"Token expires soon (in {time_until_expiry/60:.1f} minutes, at {expires_at.isoformat()}), refreshing...")
                     else:
-                        print(f"Token has expired ({abs(time_until_expiry)/60:.1f} minutes ago, was {expires_at.isoformat()}), refreshing...")
+                        logger.info(f"Token has expired ({abs(time_until_expiry)/60:.1f} minutes ago, was {expires_at.isoformat()}), refreshing...")
         except (KeyError, ValueError, TypeError, json.JSONDecodeError) as e:
-            print(f"Error reading token file, will refresh: {e}")
+            logger.warning(f"Error reading token file, will refresh: {e}")
     
     # Request a new bearer token
-    print("Requesting new TCGplayer bearer token...")
+    logger.info("Requesting new TCGplayer bearer token...")
     
     data = {
         "grant_type": "client_credentials",
@@ -118,18 +119,18 @@ def get_bearer_token(force_refresh=False):
             with open(TOKEN_FILE, 'w') as f:
                 json.dump(token_info, f, indent=4)
             
-            print(f"✓ Successfully obtained new TCGplayer bearer token (expires in {expires_in/3600:.1f} hours)")
+            logger.info(f"✓ Successfully obtained new TCGplayer bearer token (expires in {expires_in/3600:.1f} hours)")
             return bearer_token
         else:
-            print("ERROR: No access_token in response")
-            print(f"Response: {token_data}")
+            logger.error("No access_token in response")
+            logger.error(f"Response: {token_data}")
             return None
             
     except requests.exceptions.RequestException as e:
-        print(f"ERROR: Failed to obtain bearer token: {e}")
+        logger.error(f"Failed to obtain bearer token: {e}")
         if hasattr(e, 'response') and e.response is not None:
-            print(f"Response status: {e.response.status_code}")
-            print(f"Response text: {e.response.text}")
+            logger.error(f"Response status: {e.response.status_code}")
+            logger.error(f"Response text: {e.response.text}")
         return None
 
 
@@ -171,18 +172,18 @@ def fetch_group_pricing(group_id: int, product_type_id: int = 128, bearer_token:
             return data
         else:
             errors = data.get("errors", [])
-            print(f"ERROR: API request was not successful for group {group_id}")
+            logger.error(f"API request was not successful for group {group_id}")
             if errors:
-                print(f"Errors: {errors}")
+                logger.error(f"Errors: {errors}")
             else:
-                print(f"Response: {data}")
+                logger.error(f"Response: {data}")
             return None
             
     except requests.exceptions.RequestException as e:
-        print(f"ERROR: Failed to fetch pricing for group {group_id}: {e}")
+        logger.error(f"Failed to fetch pricing for group {group_id}: {e}")
         if hasattr(e, 'response') and e.response is not None:
-            print(f"Response status: {e.response.status_code}")
-            print(f"Response text: {e.response.text}")
+            logger.error(f"Response status: {e.response.status_code}")
+            logger.error(f"Response text: {e.response.text}")
         return None
 
 
@@ -223,16 +224,16 @@ def fetch_product_pricing(product_ids: list, bearer_token: str = None):
             return data
         else:
             errors = data.get("errors", [])
-            print(f"ERROR: API request was not successful for products")
+            logger.error("API request was not successful for products")
             if errors:
-                print(f"Errors: {errors}")
+                logger.error(f"Errors: {errors}")
             return None
             
     except requests.exceptions.RequestException as e:
-        print(f"ERROR: Failed to fetch pricing for products: {e}")
+        logger.error(f"Failed to fetch pricing for products: {e}")
         if hasattr(e, 'response') and e.response is not None:
-            print(f"Response status: {e.response.status_code}")
-            print(f"Response text: {e.response.text}")
+            logger.error(f"Response status: {e.response.status_code}")
+            logger.error(f"Response text: {e.response.text}")
         return None
 
 
@@ -279,15 +280,15 @@ def fetch_product_details(product_ids: list, bearer_token: str = None):
             return data
         else:
             errors = data.get("errors", [])
-            print(f"ERROR: API request was not successful for product details")
+            logger.error("API request was not successful for product details")
             if errors:
-                print(f"Errors: {errors}")
+                logger.error(f"Errors: {errors}")
             return None
             
     except requests.exceptions.RequestException as e:
-        print(f"ERROR: Failed to fetch product details: {e}")
+        logger.error(f"Failed to fetch product details: {e}")
         if hasattr(e, 'response') and e.response is not None:
-            print(f"Response status: {e.response.status_code}")
-            print(f"Response text: {e.response.text}")
+            logger.error(f"Response status: {e.response.status_code}")
+            logger.error(f"Response text: {e.response.text}")
         return None
 
