@@ -1,91 +1,5 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Terms of Service - Sorcerer's Ledger</title>
-    <link rel="stylesheet" href="style.css">
-    <style>
-        .terms-page {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 40px 20px;
-            line-height: 1.6;
-            color: #333;
-        }
-        .terms-page h1 {
-            font-size: 1.8em;
-            font-weight: bold;
-            margin-bottom: 20px;
-            color: #333;
-        }
-        .terms-page .effective-date {
-            font-style: italic;
-            margin-bottom: 30px;
-            color: #555;
-        }
-        .terms-page .effective-date sup {
-            font-size: 0.7em;
-        }
-        .terms-page h2 {
-            font-size: 1.2em;
-            font-weight: bold;
-            margin-top: 30px;
-            margin-bottom: 15px;
-            color: #333;
-        }
-        .terms-page h3 {
-            font-size: 1.1em;
-            font-weight: bold;
-            margin-top: 20px;
-            margin-bottom: 10px;
-            color: #333;
-        }
-        .terms-page p {
-            margin-bottom: 15px;
-            text-align: left;
-            word-spacing: normal;
-        }
-        .terms-page ul {
-            margin-top: 10px;
-            margin-bottom: 15px;
-            padding-left: 30px;
-            list-style-type: disc;
-        }
-        .terms-page li {
-            margin-bottom: 10px;
-            text-align: left;
-            word-spacing: normal;
-            white-space: normal;
-            display: list-item;
-        }
-        .terms-page a {
-            color: #007bff;
-            text-decoration: none;
-        }
-        .terms-page a:hover {
-            text-decoration: underline;
-        }
-        .terms-page strong {
-            font-weight: bold;
-            display: inline;
-            word-spacing: normal;
-            white-space: normal;
-        }
-        @media (max-width: 768px) {
-            .terms-page {
-                padding: 20px 15px;
-            }
-            .terms-page h1 {
-                font-size: 1.5em;
-            }
-            .terms-page h2 {
-                font-size: 1.1em;
-            }
-        }
-    </style>
-</head>
-<body>
+export const TermsOfService = {
+  template: `
     <div class="terms-page">
         <h1>Sorcerer's Ledger Terms of Use</h1>
         <p class="effective-date"><i>Effective Date: December 2<sup>nd</sup>, 2025</i></p>
@@ -137,6 +51,6 @@
         <h2>9. Contact Us</h2>
         <p>If you have any questions about these Terms, please contact us at <a href="mailto:contact@sorcerersledger.com">contact@sorcerersledger.com</a>.</p>
     </div>
-</body>
-</html>
+  `
+}
 

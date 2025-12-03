@@ -1,81 +1,5 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Privacy Policy - Sorcerer's Ledger</title>
-    <link rel="stylesheet" href="style.css">
-    <style>
-        .privacy-page {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 40px 20px;
-            line-height: 1.6;
-            color: #333;
-        }
-        .privacy-page h1 {
-            font-size: 1.8em;
-            font-weight: bold;
-            margin-bottom: 20px;
-            color: #333;
-        }
-        .privacy-page .effective-date {
-            font-style: italic;
-            margin-bottom: 30px;
-            color: #555;
-        }
-        .privacy-page h2 {
-            font-size: 1.2em;
-            font-weight: bold;
-            margin-top: 30px;
-            margin-bottom: 15px;
-            color: #333;
-        }
-        .privacy-page p {
-            margin-bottom: 15px;
-            text-align: left;
-            word-spacing: normal;
-        }
-        .privacy-page ul {
-            margin-top: 10px;
-            margin-bottom: 15px;
-            padding-left: 30px;
-            list-style-type: disc;
-        }
-        .privacy-page li {
-            margin-bottom: 10px;
-            text-align: left;
-            word-spacing: normal;
-            white-space: normal;
-            display: list-item;
-        }
-        .privacy-page strong {
-            font-weight: bold;
-            display: inline;
-            word-spacing: normal;
-            white-space: normal;
-        }
-        .privacy-page a {
-            color: #007bff;
-            text-decoration: none;
-        }
-        .privacy-page a:hover {
-            text-decoration: underline;
-        }
-        @media (max-width: 768px) {
-            .privacy-page {
-                padding: 20px 15px;
-            }
-            .privacy-page h1 {
-                font-size: 1.5em;
-            }
-            .privacy-page h2 {
-                font-size: 1.1em;
-            }
-        }
-    </style>
-</head>
-<body>
+export const PrivacyPolicy = {
+  template: `
     <div class="privacy-page">
         <h1>Sorcerer's Ledger Privacy Policy</h1>
         <p class="effective-date"><i>Effective Date: December 2<sup>nd</sup>, 2025</i></p>
@@ -113,6 +37,6 @@
             <li><strong>Email:</strong> <a href="mailto:contact@sorcerersledger.com">contact@sorcerersledger.com</a></li>
         </ul>
     </div>
-</body>
-</html>
+  `
+}
 

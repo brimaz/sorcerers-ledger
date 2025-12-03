@@ -34,6 +34,11 @@ app.get('/list-files', (req, res) => {
 // Serve static files from the root directory (after API routes)
 app.use(express.static(path.join(__dirname)));
 
+// Handle client-side routing - serve index.html for all routes
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
 app.listen(PORT, '::', () => {
   console.log(`Server listening on port ${PORT}`);
 });
