@@ -29,6 +29,10 @@ const routes = [
   {
     path: '/privacy-policy',
     component: PrivacyPolicy
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    redirect: '/'
   }
 ]
 

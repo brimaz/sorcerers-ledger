@@ -51,6 +51,7 @@ export const CardOverview = {
       tcgplayerTrackingLink: '',
       productInfoBySet: {},
       showScrollToTop: false,
+      isDataLoaded: false,
     }
   },
   async mounted() {
@@ -99,6 +100,7 @@ export const CardOverview = {
       }
     },
     async loadAndRenderCards() {
+        this.isDataLoaded = false;
         try {
             // Clear all data structures before loading new data to prevent stale data from other pages
             this.allSetsCardData = {};
@@ -241,8 +243,10 @@ export const CardOverview = {
                     this.allOldSetsCardData[setName] = this.isFoilPage ? oldData[setName].foil : oldData[setName].nonFoil;
                 }
             }
+            this.isDataLoaded = true;
         } catch (error) {
             console.error('Error loading card data:', error);
+            this.isDataLoaded = true; // Set to true even on error to show footer
         }
     },
     async getOldestCardDataFile() {
@@ -781,7 +785,7 @@ export const CardOverview = {
             </div>
         </div>
 
-        <footer class="affiliate-disclosure-footer">
+        <footer v-if="isDataLoaded" class="affiliate-disclosure-footer">
             <div class="affiliate-disclosure-content">
                 <h3>Affiliate Disclosure</h3>
                 <p>
