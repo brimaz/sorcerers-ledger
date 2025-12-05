@@ -147,17 +147,10 @@ def main():
 
     # 3. Prepare for card data generation (resume logic will handle skipping complete cards)
     output_file = "card-data/card_data.json"
-    
-    if os.path.exists(output_file):
-        modified_time = datetime.fromtimestamp(os.path.getmtime(output_file))
-        logger.info(f"Found existing card_data.json (last updated {modified_time.strftime('%Y-%m-%d %H:%M:%S')}). Will resume from existing data.")
-    else:
-        logger.info("card_data.json not found. Starting fresh update.")
+    card_data_dir = "card-data"
     
     # 4. Archive existing card_data.json only if it's from a previous day
     # (Don't archive if resuming same-day run)
-    card_data_dir = "card-data"
-    
     if os.path.exists(output_file):
         modified_time = datetime.fromtimestamp(os.path.getmtime(output_file))
         today = datetime.now().date()
@@ -172,10 +165,11 @@ def main():
             os.rename(output_file, archive_file)
             logger.info(f"Archived previous day's card_data.json to {archive_file}")
         else:
-            logger.info(f"Resuming from existing card_data.json (same day, last updated {modified_time.strftime('%Y-%m-%d %H:%M:%S')})")
+            logger.info(f"Found existing card_data.json (last updated {modified_time.strftime('%Y-%m-%d %H:%M:%S')}). Will resume from existing data.")
+    else:
+        logger.info("card_data.json not found. Starting fresh update.")
     
     # 5. Generate product info files from TCGplayer catalog API (only if they don't exist)
-    print()  # Blank line
     logger.info("=" * 60)
     logger.info("Checking product info files from TCGplayer catalog...")
     logger.info("=" * 60)
@@ -185,7 +179,6 @@ def main():
     logger.info("Product info files check complete.")
     
     # 6. Generate card data from TCGplayer (processes all sets defined in group ID mapping)
-    print()  # Blank line
     logger.info("=" * 60)
     logger.info("Starting TCGplayer card data parsing...")
     logger.info("=" * 60)

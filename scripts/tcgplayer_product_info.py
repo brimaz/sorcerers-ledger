@@ -142,7 +142,7 @@ def generate_product_info_files(output_dir: str = "card-data/product-info"):
         output_dir: Directory to save product info JSON files (default: card-data/product-info)
     """
     logger.info("Starting TCGplayer product info generation using group IDs...")
-    logger.info(f"Processing {len(SORCERY_SET_GROUP_IDS)} sets\n")
+    logger.info(f"Processing {len(SORCERY_SET_GROUP_IDS)} sets")
     
     # Get bearer token
     bearer_token = get_bearer_token()
@@ -155,7 +155,6 @@ def generate_product_info_files(output_dir: str = "card-data/product-info"):
     
     # Process each set
     for set_name, group_id in SORCERY_SET_GROUP_IDS.items():
-        print()  # Blank line
         logger.info("=" * 60)
         logger.info(f"Processing set: {set_name} (Group ID: {group_id})")
         logger.info("=" * 60)
@@ -202,10 +201,8 @@ def generate_product_info_files(output_dir: str = "card-data/product-info"):
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(product_info_list, f, ensure_ascii=False, indent=2)
         
-        print()  # Blank line
         logger.info(f"✓ Saved {len(product_info_list)} products to {output_file}")
     
-    print()  # Blank line
     logger.info("=" * 60)
     logger.info("Product info generation complete!")
     logger.info("=" * 60)

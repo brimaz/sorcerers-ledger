@@ -223,7 +223,7 @@ def generate_card_data_from_tcgplayer(
         test_set_name: Set name to test (if test_mode is True)
     """
     logger.info("Starting TCGplayer card data generation using group IDs...")
-    logger.info(f"Processing {len(SORCERY_SET_GROUP_IDS)} sets\n")
+    logger.info(f"Processing {len(SORCERY_SET_GROUP_IDS)} sets")
     
     # Load existing card data for resume functionality
     all_sets_processed_data = _load_existing_card_data(output_file_path)
@@ -240,7 +240,6 @@ def generate_card_data_from_tcgplayer(
         if test_mode and set_name != test_set_name:
             continue
         
-        print()  # Blank line
         logger.info("=" * 60)
         logger.info(f"Processing set: {set_name} (Group ID: {group_id})")
         logger.info("=" * 60)
@@ -398,7 +397,6 @@ def generate_card_data_from_tcgplayer(
             logger.info(f"Processed {processed_count} products for {set_name}")
     
     # Final sorting after all data is gathered for each set
-    print()  # Blank line
     logger.info("Sorting card data...")
     for set_name in all_sets_processed_data:
         def sort_by_price(cards):
@@ -438,5 +436,4 @@ def generate_card_data_from_tcgplayer(
     
     # Final save with sorted data
     _save_card_data_intermediate(all_sets_processed_data, output_file_path)
-    print()  # Blank line
     logger.info(f"Final save complete. Card data saved to {output_file_path}")
