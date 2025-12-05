@@ -25,6 +25,12 @@ export const Navigation = {
     isFoilPage() {
       const query = this.$route.query.view;
       return query === 'foil';
+    },
+    isPreconPage() {
+      return this.currentRoute === '/precon' || this.$route.query.view === 'precon';
+    },
+    isSealedPage() {
+      return this.currentRoute === '/sealed' || this.$route.query.view === 'sealed';
     }
   },
   template: `
@@ -55,6 +61,22 @@ export const Navigation = {
           exact-active-class=""
           :class="{ active: isCardOverview && isFoilPage }">
           Foil Overview
+        </router-link>
+        <router-link 
+          to="/precon" 
+          @click="closeNav"
+          active-class=""
+          exact-active-class=""
+          :class="{ active: isPreconPage }">
+          Precon
+        </router-link>
+        <router-link 
+          to="/sealed" 
+          @click="closeNav"
+          active-class=""
+          exact-active-class=""
+          :class="{ active: isSealedPage }">
+          Sealed
         </router-link>
         <router-link 
           to="/terms-of-service" 

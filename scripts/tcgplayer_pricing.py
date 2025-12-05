@@ -107,49 +107,95 @@ def _is_foil_product(sub_type_name: str) -> bool:
     return sub_type_name and sub_type_name.lower() == "foil"
 
 
-def _is_preconstructed_product(product_name: str) -> bool:
+def _is_sealed_preconstructed_product(product_name: str) -> bool:
     """
-    Determine if a product is related to preconstructed decks.
-    This includes both sealed deck boxes and individual cards from precons.
+    Determine if a product is a sealed preconstructed product.
+    Includes deck boxes and decks without parentheses (e.g., "Preconstructed Deck Box", 
+    "Preconstructed Deck: Air").
+    Excludes singles with "(Preconstructed Deck)".
     
     Args:
         product_name: The product name to check
         
     Returns:
-        True if "Preconstructed" is in the product name
+        True if the product is a sealed preconstructed product
     """
     if not product_name:
         return False
     
     product_name_lower = product_name.lower()
-    return "preconstructed" in product_name_lower or "pre-constructed" in product_name_lower
+    
+    # Check for sealed preconstructed products
+    if "preconstructed deck box" in product_name_lower:
+        return True
+    if "preconstructed deck:" in product_name_lower:
+        return True
+    # Check for "Preconstructed Deck" without parentheses (sealed deck)
+    if "preconstructed deck" in product_name_lower and "(" not in product_name:
+        return True
+    
+    return False
+
+
+def _is_preconstructed_product(product_name: str) -> bool:
+    """
+    Determine if a product is a single card from a preconstructed deck.
+    Only includes items with "(Preconstructed Deck)" in the name.
+    Excludes sealed products like "Preconstructed Deck Box" or "Preconstructed Deck: ".
+    
+    Args:
+        product_name: The product name to check
+        
+    Returns:
+        True if the product is a single card from a preconstructed deck
+    """
+    if not product_name:
+        return False
+    
+    # Only items with "(Preconstructed Deck)" are singles from precons
+    return "(Preconstructed Deck)" in product_name
 
 
 def _is_sealed_product(product_name: str, set_name: str = "") -> bool:
     """
     Determine if a product is a sealed product (not an individual card).
-    Excludes preconstructed products (those go to their own category).
+    Includes sealed preconstructed products (deck boxes, decks without parentheses).
+    Excludes single cards like "(Pledge Pack)" or "(Preconstructed Deck)" items.
     
     Args:
         product_name: The product name to check
         set_name: The set name (used for set-specific checks like "Dragonlord Box")
         
     Returns:
-        True if the product is sealed (booster box, booster case, booster pack, etc.)
+        True if the product is sealed (booster box, booster case, booster pack, 
+        preconstructed deck box, preconstructed deck without parentheses, etc.)
     """
     if not product_name:
+        return False
+    
+    # Exclude single cards with parentheses (these are individual cards, not sealed)
+    if "(Pledge Pack)" in product_name or "(Preconstructed Deck)" in product_name:
         return False
     
     product_name_lower = product_name.lower()
     set_name_lower = set_name.lower() if set_name else ""
     
-    # Keywords that indicate sealed products (excluding preconstructed)
+    # Check for sealed preconstructed products (deck boxes, decks without parentheses)
+    if "preconstructed deck box" in product_name_lower:
+        return True
+    if "preconstructed deck:" in product_name_lower:
+        return True
+    # Check for "Preconstructed Deck" without parentheses (sealed deck)
+    if "preconstructed deck" in product_name_lower and "(" not in product_name:
+        return True
+    
+    # Keywords that indicate sealed products
     sealed_keywords = [
         "booster box",
         "booster box case",
         "booster case",
         "booster pack",
-        "pledge pack",
+        "pledge pack",  # Only sealed pledge packs (without parentheses)
         "display",
         "booster display"
     ]
@@ -266,14 +312,27 @@ def generate_card_data_from_tcgplayer(
             if not product_name:
                 continue
             
-            # Check for preconstructed first (includes both sealed deck boxes and individual cards)
-            is_preconstructed = _is_preconstructed_product(product_name)
+            # Check categorization order matters:
+            # 1. Check if sealed preconstructed product (deck box, deck without parentheses) -> sealed
+            # 2. Check if preconstructed single (has "(Preconstructed Deck)") -> preconstructed
+            # 3. Check if sealed product (booster boxes, cases, packs, but not "(Pledge Pack)") -> sealed
+            # 4. Otherwise -> regular card (nonFoil/foil)
             
-            # Determine if this is a sealed product (booster boxes, cases, packs - excluding preconstructed)
-            is_sealed = _is_sealed_product(product_name, set_name) if not is_preconstructed else False
+            # Check for sealed preconstructed products first (these go to sealed, not preconstructed)
+            is_sealed_precon = _is_sealed_preconstructed_product(product_name)
+            
+            # Check for preconstructed singles (only items with "(Preconstructed Deck)")
+            is_preconstructed = _is_preconstructed_product(product_name) if not is_sealed_precon else False
+            
+            # Determine if this is a sealed product (booster boxes, cases, packs, sealed precons)
+            # Exclude "(Pledge Pack)" singles - those are regular cards
+            is_sealed = is_sealed_precon or (_is_sealed_product(product_name, set_name) if not is_preconstructed else False)
             
             # Determine if this is a foil product (only for individual cards, not sealed or preconstructed)
-            is_foil = _is_foil_product(price_info.get("subTypeName", "")) if not is_sealed and not is_preconstructed else False
+            # Check both subTypeName and product name for foil indication
+            is_foil = False
+            if not is_sealed and not is_preconstructed:
+                is_foil = _is_foil_product(price_info.get("subTypeName", "")) or "(Foil)" in product_name
             
             # Helper function to safely convert price values (handles None)
             def safe_float(value, default=0.0):
@@ -347,7 +406,8 @@ def generate_card_data_from_tcgplayer(
             return sorted(cards, key=lambda x: float(x.get("tcgplayerMarketPrice", "0") or 0), reverse=True)
         
         def sort_by_name(cards):
-            return sorted(cards, key=lambda x: x["name"])
+            # Sort case-insensitively for consistent ordering
+            return sorted(cards, key=lambda x: (x.get("name", "") or "").lower())
         
         all_sets_processed_data[set_name]["nonFoil"] = sort_by_price(all_sets_processed_data[set_name]["nonFoil"])
         all_sets_processed_data[set_name]["nonFoilByName"] = sort_by_name(all_sets_processed_data[set_name]["nonFoil"])

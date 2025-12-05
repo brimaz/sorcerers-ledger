@@ -2,6 +2,12 @@
 
 This project fetches Sorcery: Contested Realm card data from TCGplayer's API and generates a dynamic HTML page to display card prices with hover-over image functionality. The project uses TCGplayer's pricing and catalog APIs to get up-to-date pricing information and product details.
 
+The application provides multiple views:
+- **Non-Foil Overview**: Regular non-foil cards from all sets
+- **Foil Overview**: Foil cards from all sets
+- **Precon**: Individual cards from preconstructed decks (singles only)
+- **Sealed**: Sealed products (booster boxes, cases, packs, displays, and sealed preconstructed deck boxes)
+
 ### Project Structure
 
 ```
@@ -19,7 +25,11 @@ This project fetches Sorcery: Contested Realm card data from TCGplayer's API and
 │   ├── batch_update.py
 │   ├── components/
 │   │   ├── CardDisplay.js
-│   │   └── CardItem.js
+│   │   ├── CardItem.js
+│   │   ├── CardOverview.js
+│   │   ├── Navigation.js
+│   │   ├── PrivacyPolicy.js
+│   │   └── TermsOfService.js
 │   ├── tcgplayer_api.py
 │   ├── tcgplayer_pricing.py
 │   └── tcgplayer_product_info.py
@@ -106,7 +116,20 @@ The system uses TCGplayer Group IDs to identify sets. Set mappings are defined i
 
 2. **View the Page:**
 
-   Open `index.html` in your web browser or serve it with a web server. The page dynamically displays both non-foil and foil card overviews, with options to sort and filter. The interactive logic is handled by the Vue application initialized in `scripts/app.js` and its components in `scripts/components/`.
+   Open `index.html` in your web browser or serve it with a web server. The application provides multiple pages:
+   - **Non-Foil Overview** (`/`): Regular non-foil cards from all sets
+   - **Foil Overview** (`/?view=foil`): Foil cards from all sets
+   - **Precon** (`/precon`): Individual cards from preconstructed decks
+   - **Sealed** (`/sealed`): Sealed products (booster boxes, cases, packs, displays)
+
+   Each page includes:
+   - Sorting options (by price or name, ascending/descending)
+   - Price type selection (Market, Low, Mid, High)
+   - Price change indicators (▲/▼) showing changes from the previous week
+   - Hover-over card images (desktop)
+   - Mobile-friendly modal views
+
+   The interactive logic is handled by the Vue application initialized in `scripts/app.js` and its components in `scripts/components/`.
 
    **Note:** The application requires a web server to load JSON files due to CORS restrictions. Use a simple HTTP server:
 
@@ -125,14 +148,14 @@ The `card_data.json` file is organized by set, with the following structure:
 ```json
 {
   "SetName": {
-    "nonFoil": [...],
-    "foil": [...],
-    "sealed": [...],
-    "preconstructed": [...],
-    "nonFoilByName": [...],
-    "foilByName": [...],
-    "sealedByName": [...],
-    "preconstructedByName": [...],
+    "nonFoil": [...],           // Regular non-foil cards (sorted by price, descending)
+    "foil": [...],              // Foil cards (sorted by price, descending)
+    "sealed": [...],            // Sealed products (sorted by price, descending)
+    "preconstructed": [...],    // Preconstructed deck singles (sorted by price, descending)
+    "nonFoilByName": [...],     // Non-foil cards sorted alphabetically
+    "foilByName": [...],        // Foil cards sorted alphabetically
+    "sealedByName": [...],      // Sealed products sorted alphabetically
+    "preconstructedByName": [...], // Preconstructed singles sorted alphabetically
     "nonFoilByRarityPrice": {
       "Unique": [...],
       "Elite": [...],
@@ -146,14 +169,18 @@ The `card_data.json` file is organized by set, with the following structure:
 }
 ```
 
-Each card entry includes:
-- `name`: Card name
-- `tcgplayerProductId`: TCGplayer product ID (used for image lookup)
+Each card/product entry includes:
+- `name`: Card/product name
+- `tcgplayerProductId`: TCGplayer product ID (used for image lookup and TCGplayer links)
 - `tcgplayerLowPrice`: Low price from TCGplayer
 - `tcgplayerMidPrice`: Mid price from TCGplayer
 - `tcgplayerHighPrice`: High price from TCGplayer
 - `tcgplayerMarketPrice`: Market price from TCGplayer
 - `set_name`: Set name
+
+**Sorting:**
+- All `*ByName` arrays are sorted case-insensitively alphabetically
+- All price-sorted arrays use `tcgplayerMarketPrice` for sorting (descending by default)
 
 ### Product Info Files
 
@@ -169,11 +196,40 @@ These files are only regenerated if they don't exist, as product information doe
 
 ### Categories
 
-Cards are automatically categorized:
-- **nonFoil**: Regular non-foil cards
-- **foil**: Foil cards
-- **sealed**: Sealed products (booster boxes, cases, packs, etc.)
-- **preconstructed**: Cards from preconstructed decks (both sealed deck boxes and individual cards)
+Products are automatically categorized based on their type:
+
+- **nonFoil**: Regular non-foil cards (including individual cards from pledge packs like "Occult Ritual (Pledge Pack)")
+- **foil**: Foil cards (including foil pledge pack cards like "Death's Door (Foil) (Pledge Pack)")
+- **sealed**: Sealed products including:
+  - Booster boxes, booster cases, booster packs
+  - Pledge packs (sealed, without parentheses in name)
+  - Displays and booster displays
+  - Sealed preconstructed deck boxes (e.g., "The Four Elementals Preconstructed Deck Box")
+  - Sealed preconstructed decks (e.g., "The Four Elementals Preconstructed Deck: Air")
+  - Set-specific boxes (e.g., "Dragonlord Box")
+- **preconstructed**: Individual cards from preconstructed decks (only items with "(Preconstructed Deck)" in the name, e.g., "Avatar of Air (Preconstructed Deck)")
+
+**Note:** Items with "(Pledge Pack)" in parentheses are individual cards and go to `nonFoil` or `foil`, not `sealed`. Sealed pledge packs (without parentheses) go to `sealed`.
+
+### Frontend Features
+
+The application includes several interactive features:
+
+- **Multiple Pages**: Navigate between Non-Foil, Foil, Precon, and Sealed views
+- **Sorting**: Sort cards by price (high to low, low to high) or name (A to Z, Z to A)
+- **Price Types**: Choose between Market, Low, Mid, or High prices
+- **Group by Rarity**: (Non-Foil/Foil pages only) Group cards by rarity (Unique, Elite, Exceptional, Ordinary)
+- **Show Only High Value Cards**: (Non-Foil/Foil pages only) Filter to show only cards above rarity-specific price thresholds
+- **Price Changes**: View price change indicators (▲/▼) showing changes from the previous week
+  - Unchecked: Shows all price change arrows
+  - Checked: Shows only arrows for changes >= $1
+- **Pledge Pack Section**: When grouping by rarity, cards with "(Pledge Pack)" in the name appear in a separate "Pledge Pack" section at the bottom
+- **Hover Images**: Desktop users can hover over card names to see card images
+- **Mobile Support**: Touch-friendly interface with modal image views on mobile devices
+
+### Price Change Tracking
+
+The application compares current prices with archived data from the previous day to show price changes. Archived files are automatically created with timestamps (e.g., `card_data_20251203_210003.json`) and kept for 8 days before being automatically deleted.
 
 ### Logging
 

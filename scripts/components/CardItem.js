@@ -164,6 +164,8 @@ export const CardItem = {
       const setSlugMap = {
         'Alpha': 'alpha',
         'Beta': 'beta',
+        'Alpha (Preconstructed)': 'alpha',
+        'Beta (Preconstructed)': 'beta',
         'Arthurian Legends': 'arthurian-legends',
         'Arthurian Legends Promo': 'arthurian-legends-promo',
         'Dust Reward Promos': 'dust-reward-promos',

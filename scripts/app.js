@@ -13,6 +13,16 @@ const routes = [
     props: route => ({ query: route.query })
   },
   {
+    path: '/precon',
+    component: CardOverview,
+    props: route => ({ query: { ...route.query, view: 'precon' } })
+  },
+  {
+    path: '/sealed',
+    component: CardOverview,
+    props: route => ({ query: { ...route.query, view: 'sealed' } })
+  },
+  {
     path: '/terms-of-service',
     component: TermsOfService
   },

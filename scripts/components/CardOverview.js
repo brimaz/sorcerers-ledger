@@ -14,10 +14,14 @@ export const CardOverview = {
       allSetsCardDataByRarityName: {},
       allOldSetsCardData: {},
       isFoilPage: false,
+      isPreconPage: false,
+      isSealedPage: false,
       RARITIES: ["Unique", "Elite", "Exceptional", "Ordinary"],
       SET_ICONS: {
           "Alpha": "α",
           "Beta": "β",
+          "Alpha (Preconstructed)": "α",
+          "Beta (Preconstructed)": "β",
           "Dust Reward Promos": "★",
           "Arthurian Legends Promo": "★",
           "Arthurian Legends": "⚔️",
@@ -71,6 +75,8 @@ export const CardOverview = {
     initializeFromRoute() {
       const query = this.$route.query;
       this.isFoilPage = query.view === 'foil';
+      this.isPreconPage = query.view === 'precon' || this.$route.path === '/precon';
+      this.isSealedPage = query.view === 'sealed' || this.$route.path === '/sealed';
       
       if (query.priceType && ['low', 'mid', 'high', 'market'].includes(query.priceType)) {
         this.priceType = query.priceType;
@@ -94,6 +100,13 @@ export const CardOverview = {
     },
     async loadAndRenderCards() {
         try {
+            // Clear all data structures before loading new data to prevent stale data from other pages
+            this.allSetsCardData = {};
+            this.allSetsCardDataByName = {};
+            this.allSetsCardDataByRarityPrice = {};
+            this.allSetsCardDataByRarityName = {};
+            this.allOldSetsCardData = {};
+            
             const OLDEST_CARD_DATA_FILE = await this.getOldestCardDataFile();
 
             const response = await fetch('card-data/card_data.json');
@@ -110,7 +123,13 @@ export const CardOverview = {
                 }
             }
 
-            document.title = this.isFoilPage ? "Sorcery Foil Card Prices Overview" : "Sorcery Non-Foil Card Prices Overview";
+            if (this.isPreconPage) {
+              document.title = "Sorcery Preconstructed Deck Prices Overview";
+            } else if (this.isSealedPage) {
+              document.title = "Sorcery Sealed Products Prices Overview";
+            } else {
+              document.title = this.isFoilPage ? "Sorcery Foil Card Prices Overview" : "Sorcery Non-Foil Card Prices Overview";
+            }
 
             const filterCardsWithProductIds = (cardArray) => {
                 if (!Array.isArray(cardArray)) return cardArray;
@@ -126,15 +145,101 @@ export const CardOverview = {
                 return filtered;
             };
 
-            for (const setName in data) {
-                this.allSetsCardData[setName] = filterCardsWithProductIds(this.isFoilPage ? data[setName].foil : data[setName].nonFoil);
-                this.allSetsCardDataByName[setName] = filterCardsWithProductIds(this.isFoilPage ? data[setName].foilByName : data[setName].nonFoilByName);
-                this.allSetsCardDataByRarityPrice[setName] = filterRarityGroupedData(this.isFoilPage ? data[setName].foilByRarityPrice : data[setName].nonFoilByRarityPrice);
-                this.allSetsCardDataByRarityName[setName] = filterRarityGroupedData(this.isFoilPage ? data[setName].foilByRarityName : data[setName].nonFoilByRarityName);
+            if (this.isPreconPage) {
+                // On precon page, load all preconstructed products as-is
+                const preconstructedSets = ['Alpha', 'Beta'];
+                for (const sourceSetName of preconstructedSets) {
+                    if (data[sourceSetName] && data[sourceSetName].preconstructed && data[sourceSetName].preconstructed.length > 0) {
+                        const preconSetName = `${sourceSetName} (Preconstructed)`;
+                        const preconProducts = filterCardsWithProductIds(data[sourceSetName].preconstructed);
+                        
+                        // Use preconstructedByName if available, otherwise sort by name
+                        const sortedByName = data[sourceSetName].preconstructedByName && data[sourceSetName].preconstructedByName.length > 0
+                            ? filterCardsWithProductIds(data[sourceSetName].preconstructedByName)
+                            : [...preconProducts].sort((a, b) => {
+                                const nameA = (a.name || '').toLowerCase();
+                                const nameB = (b.name || '').toLowerCase();
+                                return nameA.localeCompare(nameB);
+                            });
+                        
+                        // For preconstructed products, we don't have rarities, so create empty rarity structures
+                        const emptyRarityStructure = {};
+                        for (const rarity of this.RARITIES) {
+                            emptyRarityStructure[rarity] = [];
+                        }
+                        
+                        this.allSetsCardData[preconSetName] = preconProducts;
+                        this.allSetsCardDataByName[preconSetName] = sortedByName;
+                        this.allSetsCardDataByRarityPrice[preconSetName] = emptyRarityStructure;
+                        this.allSetsCardDataByRarityName[preconSetName] = emptyRarityStructure;
+                    }
+                }
+            } else if (this.isSealedPage) {
+                // On sealed page, load all sealed products as-is (exclude promo sets)
+                for (const setName in data) {
+                    // Exclude promo sets from sealed page
+                    if (setName.includes('Promo') || setName.includes('Promos')) {
+                        continue;
+                    }
+                    if (data[setName].sealed && data[setName].sealed.length > 0) {
+                        const sealedProducts = filterCardsWithProductIds(data[setName].sealed);
+                        
+                        // Use sealedByName if available, otherwise sort by name
+                        const sortedByName = data[setName].sealedByName && data[setName].sealedByName.length > 0
+                            ? filterCardsWithProductIds(data[setName].sealedByName)
+                            : [...sealedProducts].sort((a, b) => {
+                                const nameA = (a.name || '').toLowerCase();
+                                const nameB = (b.name || '').toLowerCase();
+                                return nameA.localeCompare(nameB);
+                            });
+                        
+                        // For sealed products, we don't have rarities, so create empty rarity structures
+                        const emptyRarityStructure = {};
+                        for (const rarity of this.RARITIES) {
+                            emptyRarityStructure[rarity] = [];
+                        }
+                        
+                        this.allSetsCardData[setName] = sealedProducts;
+                        this.allSetsCardDataByName[setName] = sortedByName;
+                        this.allSetsCardDataByRarityPrice[setName] = emptyRarityStructure;
+                        this.allSetsCardDataByRarityName[setName] = emptyRarityStructure;
+                    }
+                }
+            } else {
+                // On foil/non-foil pages, load regular card data (exclude preconstructed and sealed)
+                for (const setName in data) {
+                    this.allSetsCardData[setName] = filterCardsWithProductIds(this.isFoilPage ? data[setName].foil : data[setName].nonFoil);
+                    this.allSetsCardDataByName[setName] = filterCardsWithProductIds(this.isFoilPage ? data[setName].foilByName : data[setName].nonFoilByName);
+                    this.allSetsCardDataByRarityPrice[setName] = filterRarityGroupedData(this.isFoilPage ? data[setName].foilByRarityPrice : data[setName].nonFoilByRarityPrice);
+                    this.allSetsCardDataByRarityName[setName] = filterRarityGroupedData(this.isFoilPage ? data[setName].foilByRarityName : data[setName].nonFoilByRarityName);
+                }
             }
 
-            for (const setName in oldData) {
-                this.allOldSetsCardData[setName] = this.isFoilPage ? oldData[setName].foil : oldData[setName].nonFoil;
+            if (this.isPreconPage) {
+                // On precon page, load all old preconstructed data as-is
+                const preconstructedSets = ['Alpha', 'Beta'];
+                for (const sourceSetName of preconstructedSets) {
+                    if (oldData[sourceSetName] && oldData[sourceSetName].preconstructed && oldData[sourceSetName].preconstructed.length > 0) {
+                        const preconSetName = `${sourceSetName} (Preconstructed)`;
+                        this.allOldSetsCardData[preconSetName] = oldData[sourceSetName].preconstructed;
+                    }
+                }
+            } else if (this.isSealedPage) {
+                // On sealed page, load all old sealed data as-is (exclude promo sets)
+                for (const setName in oldData) {
+                    // Exclude promo sets from sealed page
+                    if (setName.includes('Promo') || setName.includes('Promos')) {
+                        continue;
+                    }
+                    if (oldData[setName].sealed && oldData[setName].sealed.length > 0) {
+                        this.allOldSetsCardData[setName] = oldData[setName].sealed;
+                    }
+                }
+            } else {
+                // On foil/non-foil pages, load old regular card data
+                for (const setName in oldData) {
+                    this.allOldSetsCardData[setName] = this.isFoilPage ? oldData[setName].foil : oldData[setName].nonFoil;
+                }
             }
         } catch (error) {
             console.error('Error loading card data:', error);
@@ -221,6 +326,14 @@ export const CardOverview = {
           }
         }
       }
+      
+      // Map preconstructed sets to use the same product info as their base sets
+      if (this.productInfoBySet['Alpha']) {
+        this.productInfoBySet['Alpha (Preconstructed)'] = this.productInfoBySet['Alpha'];
+      }
+      if (this.productInfoBySet['Beta']) {
+        this.productInfoBySet['Beta (Preconstructed)'] = this.productInfoBySet['Beta'];
+      }
     },
     getSortedData(setsData, setsDataByName, setsDataByRarityPrice, setsDataByRarityName, sortOption, isGrouped, isFiltered, isFilteredByPriceChange, priceType) {
       let processedData = {};
@@ -282,6 +395,59 @@ export const CardOverview = {
               processedData = filteredData;
           }
 
+          // Add Pledge Pack section for cards with "(Pledge Pack)" in the name
+          // Extract pledge pack cards from the flat arrays and add them as a special section
+          for (const setName in setsData) {
+              if (!processedData[setName]) {
+                  processedData[setName] = {};
+              }
+              
+              // Get all cards from the flat array (nonFoil or foil depending on page)
+              const allCards = setsData[setName] || [];
+              const pledgePackCards = allCards.filter(card => {
+                  if (!card || !card.tcgplayerProductId) return false;
+                  const name = card.name || '';
+                  return name.includes('(Pledge Pack)');
+              });
+              
+              // Only add Pledge Pack section if there are pledge pack cards
+              if (pledgePackCards.length > 0) {
+                  // Sort pledge pack cards based on sort option
+                  let sortedPledgePackCards;
+                  if (sortOption === 'name-asc') {
+                      sortedPledgePackCards = [...pledgePackCards].sort((a, b) => {
+                          const nameA = (a.name || '').toLowerCase();
+                          const nameB = (b.name || '').toLowerCase();
+                          return nameA.localeCompare(nameB);
+                      });
+                  } else if (sortOption === 'name-desc') {
+                      sortedPledgePackCards = [...pledgePackCards].sort((a, b) => {
+                          const nameA = (a.name || '').toLowerCase();
+                          const nameB = (b.name || '').toLowerCase();
+                          return nameB.localeCompare(nameA);
+                      });
+                  } else if (sortOption === 'price-asc') {
+                      sortedPledgePackCards = [...pledgePackCards].sort((a, b) => parseFloat(a[priceField] || 0) - parseFloat(b[priceField] || 0));
+                  } else {
+                      sortedPledgePackCards = [...pledgePackCards].sort((a, b) => parseFloat(b[priceField] || 0) - parseFloat(a[priceField] || 0));
+                  }
+                  
+                  // Apply filtering if enabled
+                  if (isFiltered) {
+                      sortedPledgePackCards = sortedPledgePackCards.filter(card => {
+                          const price = parseFloat(card[priceField] || 0);
+                          // For pledge pack cards, use a low threshold or show all
+                          return price === 0 || isNaN(price) || price > 0;
+                      });
+                  }
+                  
+                  // Add as "Pledge Pack" section (will appear after all rarities)
+                  if (sortedPledgePackCards.length > 0) {
+                      processedData[setName]['Pledge Pack'] = sortedPledgePackCards;
+                  }
+              }
+          }
+
           return processedData;
 
       } else {
@@ -328,8 +494,9 @@ export const CardOverview = {
       }
     },
     navigateToSort() {
+      // Preserve the current path (/, /precon, or /sealed) when updating query parameters
       this.$router.push({
-        path: '/',
+        path: this.$route.path,
         query: {
           ...this.$route.query,
           sort: this.sortBy,
@@ -423,6 +590,8 @@ export const CardOverview = {
             const setSlugMap = {
                 'Alpha': 'alpha',
                 'Beta': 'beta',
+                'Alpha (Preconstructed)': 'alpha',
+                'Beta (Preconstructed)': 'beta',
                 'Arthurian Legends': 'arthurian-legends',
                 'Arthurian Legends Promo': 'arthurian-legends-promo',
                 'Dust Reward Promos': 'dust-reward-promos',
@@ -479,6 +648,18 @@ export const CardOverview = {
         },
         immediate: false,
     },
+    isPreconPage: {
+        handler(newVal) {
+            this.loadAndRenderCards();
+        },
+        immediate: false,
+    },
+    isSealedPage: {
+        handler(newVal) {
+            this.loadAndRenderCards();
+        },
+        immediate: false,
+    },
   },
   computed: {
     setsDataToRender() {
@@ -497,7 +678,7 @@ export const CardOverview = {
   },
   template: `
     <div>
-        <h1>{{ isFoilPage ? "Sorcery Foil Card Prices Overview" : "Sorcery Non-Foil Card Prices Overview" }}</h1>
+        <h1>{{ isPreconPage ? "Sorcery Preconstructed Deck Prices Overview" : (isSealedPage ? "Sorcery Sealed Products Prices Overview" : (isFoilPage ? "Sorcery Foil Card Prices Overview" : "Sorcery Non-Foil Card Prices Overview")) }}</h1>
 
         <div class="sort-controls">
             <label for="sort-select">Sort by:</label>
@@ -522,21 +703,25 @@ export const CardOverview = {
                 </div>
                 <span v-if="priceType === 'market'" class="price-type-disclaimer-mobile">*Not all prices are tracked by market</span>
             </div>
-            <label for="group-by-rarity">Group by Rarity:<input type="checkbox" id="group-by-rarity" v-model="isGrouped"></label>
-            <label for="filter-by-value">Show Only High Value Cards:<input type="checkbox" id="filter-by-value" v-model="isFiltered"></label>
+            <label v-if="!isPreconPage && !isSealedPage" for="group-by-rarity">Group by Rarity:<input type="checkbox" id="group-by-rarity" v-model="isGrouped"></label>
+            <label v-if="!isPreconPage && !isSealedPage" for="filter-by-value">Show Only High Value Cards:<input type="checkbox" id="filter-by-value" v-model="isFiltered"></label>
             <label for="filter-by-price-change">Price Changes >= $1 (Last Week):<input type="checkbox" id="filter-by-price-change" v-model="filterPriceChangeStatus"></label>
         </div>
 
         <CardDisplay
             :setsDataToRender="setsDataToRender"
             :allSetsCardData="allSetsCardData"
+            :allSetsCardDataByName="allSetsCardDataByName"
             :RARITIES="RARITIES"
             :SET_ICONS="SET_ICONS"
             :isFoilPage="isFoilPage"
+            :isPreconPage="isPreconPage"
+            :isSealedPage="isSealedPage"
             :filterPriceChangeStatus="filterPriceChangeStatus"
             :allOldSetsCardData="allOldSetsCardData"
             :isGrouped="isGrouped"
             :priceType="priceType"
+            :sortBy="sortBy"
             :showHoverImage="showHoverImage.bind(this)"
             :hideHoverImage="hideHoverImage.bind(this)"
             :showMobileModal="showMobileModal.bind(this)"

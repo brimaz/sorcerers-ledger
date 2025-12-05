@@ -6,11 +6,15 @@ export const CardDisplay = {
     'RARITIES',
     'SET_ICONS',
     'isFoilPage',
+    'isPreconPage',
+    'isSealedPage',
     'filterPriceChangeStatus',
     'allOldSetsCardData',
     'allSetsCardData',
+    'allSetsCardDataByName',
     'isGrouped',
     'priceType',
+    'sortBy',
     'showHoverImage',
     'hideHoverImage',
     'showMobileModal',
@@ -25,8 +29,8 @@ export const CardDisplay = {
             <span v-if="SET_ICONS[setName]" class="set-icon">{{ SET_ICONS[setName] }}</span>
             {{ setName }}
           </h2>
-          <ul v-if="setsDataToRender[setName] && (isGrouped ? hasCardsInGroupedSet(setName) : setsDataToRender[setName].length > 0)">
-            <template v-if="isGrouped">
+          <ul v-if="setsDataToRender[setName] && ((isPreconstructedSet(setName) || isSealedSet(setName)) ? (isPreconstructedSet(setName) ? hasPreconstructedCards(setName) : hasSealedCards(setName)) : (isGrouped ? hasCardsInGroupedSet(setName) : setsDataToRender[setName].length > 0))">
+            <template v-if="isGrouped && !isPreconstructedSet(setName) && !isSealedSet(setName)">
               <template v-for="rarity in sortedRarities(setsDataToRender[setName])">
                 <h3 class="rarity-subheader">{{ setName }} - {{ rarity }}</h3>
                 <template v-if="setsDataToRender[setName][rarity] && setsDataToRender[setName][rarity].length > 0">
@@ -52,7 +56,7 @@ export const CardDisplay = {
             </template>
             <template v-else>
               <CardItem
-                v-for="card in setsDataToRender[setName]"
+                v-for="card in getCardsForSet(setName)"
                 :key="card.name + card.condition"
                 :card="card"
                 :setName="setName"
@@ -84,7 +88,9 @@ export const CardDisplay = {
       // Define the chronological order of sets
       const setOrder = [
         'Alpha',
+        'Alpha (Preconstructed)',
         'Beta',
+        'Beta (Preconstructed)',
         'Arthurian Legends',
         'Dragonlord'
       ];
@@ -95,22 +101,45 @@ export const CardDisplay = {
       const setsFromData = Object.keys(this.allSetsCardData || {});
       const allSetNames = [...new Set([...setsFromRender, ...setsFromData])];
       
+      // Filter sets based on page type
+      let filteredSetNames = allSetNames;
+      if (this.isFoilPage) {
+        // On foil page, exclude preconstructed and sealed sets
+        filteredSetNames = allSetNames.filter(setName => !setName.includes('(Preconstructed)'));
+      } else if (this.isPreconPage) {
+        // On precon page, only show preconstructed sets
+        filteredSetNames = allSetNames.filter(setName => setName.includes('(Preconstructed)'));
+      } else if (this.isSealedPage) {
+        // On sealed page, show all sets (only sets with sealed products are loaded)
+        filteredSetNames = allSetNames;
+      } else {
+        // On non-foil page, exclude preconstructed sets (they're on their own page now)
+        // Sealed products are already excluded since we don't load them on non-foil page
+        filteredSetNames = allSetNames.filter(setName => !setName.includes('(Preconstructed)'));
+      }
+      
       // Sort: first by defined order, then any remaining sets alphabetically
       return setOrder
-        .filter(setName => allSetNames.includes(setName))
-        .concat(allSetNames.filter(setName => !setOrder.includes(setName)).sort());
+        .filter(setName => filteredSetNames.includes(setName))
+        .concat(filteredSetNames.filter(setName => !setOrder.includes(setName)).sort());
     },
   },
   methods: {
     sortedRarities(setCardsData) {
-      return this.RARITIES.filter(rarity => setCardsData[rarity] && setCardsData[rarity].length > 0);
+      // Get all rarities that have cards, plus "Pledge Pack" if it exists
+      const rarities = this.RARITIES.filter(rarity => setCardsData[rarity] && setCardsData[rarity].length > 0);
+      // Add "Pledge Pack" at the end if it exists
+      if (setCardsData['Pledge Pack'] && setCardsData['Pledge Pack'].length > 0) {
+        rarities.push('Pledge Pack');
+      }
+      return rarities;
     },
     hasSetData(setName) {
       // Check if the set exists in the raw data
       return this.allSetsCardData && this.allSetsCardData[setName] && this.allSetsCardData[setName].length > 0;
     },
     hasCardsInGroupedSet(setName) {
-      // Check if there are any cards in the grouped set data
+      // Check if there are any cards in the grouped set data (including Pledge Pack section)
       if (!this.setsDataToRender[setName]) return false;
       for (const rarity in this.setsDataToRender[setName]) {
         if (this.setsDataToRender[setName][rarity] && this.setsDataToRender[setName][rarity].length > 0) {
@@ -118,6 +147,75 @@ export const CardDisplay = {
         }
       }
       return false;
+    },
+    isPreconstructedSet(setName) {
+      return setName && setName.includes('(Preconstructed)');
+    },
+    isSealedSet(setName) {
+      // Sealed sets are identified by checking if we're on the sealed page and the set has sealed products
+      // Since on sealed page we only load sets with sealed products, all sets are sealed sets
+      return this.isSealedPage;
+    },
+    hasPreconstructedCards(setName) {
+      // For preconstructed sets, always check allSetsCardData (flat array) regardless of grouped mode
+      return this.allSetsCardData && this.allSetsCardData[setName] && this.allSetsCardData[setName].length > 0;
+    },
+    hasSealedCards(setName) {
+      // For sealed sets, always check allSetsCardData (flat array) regardless of grouped mode
+      return this.allSetsCardData && this.allSetsCardData[setName] && this.allSetsCardData[setName].length > 0;
+    },
+    getCardsForSet(setName) {
+      // For preconstructed and sealed sets: when not grouped, use setsDataToRender (sorted)
+      // When grouped, setsDataToRender is an object, so sort allSetsCardData based on sortBy
+      // For other sets, use setsDataToRender (which may be grouped or flat depending on isGrouped)
+      if (this.isPreconstructedSet(setName) || this.isSealedSet(setName)) {
+        // Check if setsDataToRender is an array (not grouped) - if so, use it for sorting
+        const renderData = this.setsDataToRender[setName];
+        if (Array.isArray(renderData)) {
+          return renderData;
+        }
+        // Otherwise (grouped mode), sort the data based on sortBy
+        const cards = this.allSetsCardData && this.allSetsCardData[setName] ? this.allSetsCardData[setName] : [];
+        if (cards.length === 0) return [];
+        
+        const priceField = this.getPriceFieldName(this.priceType);
+        
+        if (this.sortBy === 'name-asc') {
+          // Use the pre-sorted by name array if available
+          return this.allSetsCardDataByName && this.allSetsCardDataByName[setName] 
+            ? this.allSetsCardDataByName[setName] 
+            : [...cards].sort((a, b) => {
+                const nameA = (a.name || '').toLowerCase();
+                const nameB = (b.name || '').toLowerCase();
+                return nameA.localeCompare(nameB);
+              });
+        } else if (this.sortBy === 'name-desc') {
+          // Use the pre-sorted by name array and reverse it
+          const sortedByName = this.allSetsCardDataByName && this.allSetsCardDataByName[setName] 
+            ? this.allSetsCardDataByName[setName] 
+            : [...cards].sort((a, b) => {
+                const nameA = (a.name || '').toLowerCase();
+                const nameB = (b.name || '').toLowerCase();
+                return nameA.localeCompare(nameB);
+              });
+          return [...sortedByName].reverse();
+        } else if (this.sortBy === 'price-asc') {
+          return [...cards].sort((a, b) => parseFloat(a[priceField] || 0) - parseFloat(b[priceField] || 0));
+        } else {
+          // price-desc (default)
+          return [...cards].sort((a, b) => parseFloat(b[priceField] || 0) - parseFloat(a[priceField] || 0));
+        }
+      }
+      return this.setsDataToRender[setName] || [];
+    },
+    getPriceFieldName(priceType) {
+      const priceFieldMap = {
+        'low': 'tcgplayerLowPrice',
+        'mid': 'tcgplayerMidPrice',
+        'high': 'tcgplayerHighPrice',
+        'market': 'tcgplayerMarketPrice'
+      };
+      return priceFieldMap[priceType] || 'tcgplayerLowPrice';
     },
     getNoCardsMessage(setName) {
       // Check if the set has cards for the current view type
