@@ -86,7 +86,7 @@ The system uses TCGplayer Group IDs to identify sets. Set mappings are defined i
 - Arthurian Legends Promo: 23778
 - Arthurian Legends: 23588
 - Dragonlord: 24378
-- Gothic: 24471 (commented out - no pricing data yet)
+- Gothic: 24471
 
 ### Usage
 

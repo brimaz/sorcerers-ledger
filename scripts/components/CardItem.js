@@ -58,10 +58,26 @@ export const CardItem = {
         const productInfo = this.productInfoBySet[this.setName][String(cardProductId)];
         if (productInfo && productInfo.imageUrl) {
           // Replace "200w" with "in_1000x1000" for larger hover images
+          // TCGplayer images maintain their aspect ratio, so Site cards will display horizontally
+          // when the CSS horizontal class is applied
           return productInfo.imageUrl.replace(/200w/g, 'in_1000x1000');
         }
       }
       // Fallback: return null if image is not available
+      return null;
+    },
+    cardType() {
+      // Get card type from product info
+      const cardProductId = this.card.tcgplayerProductId;
+      if (cardProductId && this.productInfoBySet && this.productInfoBySet[this.setName]) {
+        const productInfo = this.productInfoBySet[this.setName][String(cardProductId)];
+        if (productInfo) {
+          const ct = productInfo.cardType;
+          if (ct && ct.trim() !== "") {
+            return ct.trim();
+          }
+        }
+      }
       return null;
     },
     fluctuation() {
@@ -170,6 +186,7 @@ export const CardItem = {
         'Arthurian Legends Promo': 'arthurian-legends-promo',
         'Dust Reward Promos': 'dust-reward-promos',
         'Dragonlord': 'dragonlord',
+        'Gothic': 'gothic',
       };
       return setSlugMap[setName] || setName.toLowerCase().replace(/\s+/g, '-');
     },

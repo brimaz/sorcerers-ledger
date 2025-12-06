@@ -17,7 +17,7 @@ SORCERY_SET_GROUP_IDS = {
     "Arthurian Legends Promo": 23778,
     "Arthurian Legends": 23588,
     "Dragonlord": 24378,
-    # "Gothic": 24471,  # Commented out - no pricing data yet
+    "Gothic": 24471,
 }
 
 TCGPLAYER_PRODUCT_TYPE_ID = 128  # Trading cards product type
@@ -81,17 +81,19 @@ def fetch_products_in_batches(product_ids: List[int], bearer_token: str, batch_s
             for product in results:
                 product_id = product.get("productId")
                 if product_id:
-                    # Extract rarity from extendedData if available
+                    # Extract rarity and card type from extendedData if available
                     # API uses getExtendedFields=true but returns extendedData property
                     rarity = ""
+                    card_type = ""
                     extended_data = product.get("extendedData", [])
                     if extended_data:
-                        # Look for rarity in extended data
+                        # Look for rarity and card type in extended data
                         for field in extended_data:
                             field_name = field.get("name", "")
-                            # Try exact match first
+                            field_value = field.get("value", "")
+                            
+                            # Extract rarity
                             if field_name == "Rarity" or field_name.lower() == "rarity":
-                                rarity_value = field.get("value", "")
                                 # Normalize rarity values to match our expected format
                                 # TCGplayer might return different casing or variations
                                 rarity_map = {
@@ -100,23 +102,29 @@ def fetch_products_in_batches(product_ids: List[int], bearer_token: str, batch_s
                                     "exceptional": "Exceptional",
                                     "ordinary": "Ordinary"
                                 }
-                                rarity = rarity_map.get(rarity_value.lower(), rarity_value)
-                                break
+                                rarity = rarity_map.get(field_value.lower(), field_value)
+                            
+                            # Extract card type
+                            if field_name == "Card Type" or field_name.lower() == "card type":
+                                card_type = field_value
                         
-                        # If still not found, try looking for any field containing "rarity"
-                        if not rarity:
+                        # If still not found, try looking for any field containing "rarity" or "card type"
+                        if not rarity or not card_type:
                             for field in extended_data:
                                 field_name = field.get("name", "").lower()
-                                if "rarity" in field_name:
-                                    rarity_value = field.get("value", "")
+                                field_value = field.get("value", "")
+                                
+                                if not rarity and "rarity" in field_name:
                                     rarity_map = {
                                         "unique": "Unique",
                                         "elite": "Elite",
                                         "exceptional": "Exceptional",
                                         "ordinary": "Ordinary"
                                     }
-                                    rarity = rarity_map.get(rarity_value.lower(), rarity_value)
-                                    break
+                                    rarity = rarity_map.get(field_value.lower(), field_value)
+                                
+                                if not card_type and ("card type" in field_name or "cardtype" in field_name):
+                                    card_type = field_value
                     
                     # Extract only the fields we need
                     product_map[product_id] = {
@@ -125,7 +133,8 @@ def fetch_products_in_batches(product_ids: List[int], bearer_token: str, batch_s
                         "cleanName": product.get("cleanName", ""),
                         "imageUrl": product.get("imageUrl", ""),
                         "url": product.get("url", ""),  # TCGplayer product URL
-                        "rarity": rarity  # Rarity from extended fields
+                        "rarity": rarity,  # Rarity from extended fields
+                        "cardType": card_type  # Card Type from extended fields
                     }
             logger.info(f"✓ Retrieved {len(results)} products")
         else:

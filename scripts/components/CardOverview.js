@@ -26,6 +26,7 @@ export const CardOverview = {
           "Arthurian Legends Promo": "★",
           "Arthurian Legends": "⚔️",
           "Dragonlord": "🐉",
+          "Gothic": "🦇",
       },
       RARITY_PRICE_THRESHOLDS: {
           "Unique": 1.5,
@@ -42,6 +43,7 @@ export const CardOverview = {
       mobileModalCardName: null,
       mobileModalSetName: null,
       mobileModalIsFoil: false,
+      mobileModalIsHorizontal: false,
       isMobileModalVisible: false,
       hoverImageUrl: null,
       hoverImagePosition: { top: 0, left: 0 },
@@ -555,6 +557,7 @@ export const CardOverview = {
         this.mobileModalIsFoil = isFoilPage;
         this.mobileModalCardName = cardName;
         this.mobileModalSetName = setName;
+        this.mobileModalIsHorizontal = false;
         this.isMobileModalVisible = true;
         this.showModalImageError = false;
     },
@@ -563,6 +566,7 @@ export const CardOverview = {
         this.mobileModalImageUrl = null;
         this.mobileModalCardName = null;
         this.mobileModalSetName = null;
+        this.mobileModalIsHorizontal = false;
         this.showModalImageError = false;
     },
     getMobileTcgplayerLink() {
@@ -600,6 +604,7 @@ export const CardOverview = {
                 'Arthurian Legends Promo': 'arthurian-legends-promo',
                 'Dust Reward Promos': 'dust-reward-promos',
                 'Dragonlord': 'dragonlord',
+                'Gothic': 'gothic',
             };
             const setSlug = setSlugMap[this.mobileModalSetName] || this.mobileModalSetName.toLowerCase().replace(/\s+/g, '-');
             
@@ -642,9 +647,27 @@ export const CardOverview = {
     isFiltered: 'navigateToSort',
     filterPriceChangeStatus: 'navigateToSort',
     '$route'(to, from) {
-      // React to route changes (e.g., switching between foil and non-foil)
+      // Only reload data if the page type actually changed (path or view query param)
+      // Don't reload if only filter/sort query params changed
+      const pageTypeChanged = to.path !== from.path || to.query.view !== from.query.view;
+      
+      if (pageTypeChanged) {
+        // Reset filter/sort options to defaults when switching pages
+        this.sortBy = 'price-desc';
+        this.priceType = 'low';
+        this.isGrouped = true;
+        this.isFiltered = true;
+        this.filterPriceChangeStatus = true;
+      }
+      
       this.initializeFromRoute();
-      this.loadAndRenderCards();
+      
+      if (pageTypeChanged) {
+        // Page type changed (e.g., switching between foil and non-foil, or precon/sealed)
+        this.loadAndRenderCards();
+      }
+      // If only query params changed (sort, priceType, etc.), the computed property
+      // setsDataToRender will automatically update without reloading data
     },
     isFoilPage: {
         handler(newVal) {
@@ -735,7 +758,6 @@ export const CardOverview = {
 
         <div v-if="hoverImageUrl !== null" 
              class="hover-image show-hover-image"
-             :class="{ 'hover-image-horizontal': isHoverImageHorizontal }"
              :style="{ top: hoverImagePosition.top + 'px', left: hoverImagePosition.left + 'px' }">
             <div v-if="hoverImageUrl && isFoilPage" class="foil-image-wrapper">
                 <img :src="hoverImageUrl" 
@@ -759,7 +781,7 @@ export const CardOverview = {
                 <button class="modal-close-button" @click="hideMobileModal">
                     <img src="assets/sl-modal-close.png" alt="Close">
                 </button>
-                <div v-if="mobileModalImageUrl && mobileModalIsFoil" class="foil-image-wrapper">
+                <div v-if="mobileModalImageUrl && mobileModalIsFoil" class="foil-image-wrapper" :class="{ 'modal-image-horizontal': mobileModalIsHorizontal }">
                     <img :src="mobileModalImageUrl" 
                          alt="Card Image Not Available" 
                          class="modal-image" 

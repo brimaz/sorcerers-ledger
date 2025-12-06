@@ -91,8 +91,11 @@ export const CardDisplay = {
         'Alpha (Preconstructed)',
         'Beta',
         'Beta (Preconstructed)',
+        'Dust Reward Promos',
         'Arthurian Legends',
-        'Dragonlord'
+        'Arthurian Legends Promo',
+        'Dragonlord',
+        'Gothic'
       ];
       
       // Get all set names from both setsDataToRender and allSetsCardData
