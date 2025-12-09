@@ -1,4 +1,7 @@
 export const PrivacyPolicy = {
+  mounted() {
+    document.title = "Sorcerer's Ledger - Privacy Policy";
+  },
   template: `
     <div class="privacy-page">
         <h1>Sorcerer's Ledger Privacy Policy</h1>

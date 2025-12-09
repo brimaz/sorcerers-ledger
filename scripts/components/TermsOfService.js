@@ -1,4 +1,7 @@
 export const TermsOfService = {
+  mounted() {
+    document.title = "Sorcerer's Ledger - ToS";
+  },
   template: `
     <div class="terms-page">
         <h1>Sorcerer's Ledger Terms of Use</h1>

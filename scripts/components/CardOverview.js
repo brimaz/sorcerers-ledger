@@ -128,11 +128,11 @@ export const CardOverview = {
             }
 
             if (this.isPreconPage) {
-              document.title = "Sorcery Preconstructed Deck Prices Overview";
+              document.title = "Sorcerer's Ledger - Precon";
             } else if (this.isSealedPage) {
-              document.title = "Sorcery Sealed Products Prices Overview";
+              document.title = "Sorcerer's Ledger - Sealed";
             } else {
-              document.title = this.isFoilPage ? "Sorcery Foil Card Prices Overview" : "Sorcery Non-Foil Card Prices Overview";
+              document.title = this.isFoilPage ? "Sorcerer's Ledger - Foil" : "Sorcerer's Ledger - Non-Foil";
             }
 
             const filterCardsWithProductIds = (cardArray) => {
