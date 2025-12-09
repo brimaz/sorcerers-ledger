@@ -175,10 +175,14 @@ li {
 
 .card-name a:link,
 .card-name a:visited,
-.card-name a:hover,
 .card-name a:active {
     color: #333333;
     text-decoration: none;
+}
+
+.card-name a:hover {
+    color: #007bff;
+    text-decoration: underline;
 }
 
 .card-price {
@@ -403,6 +407,7 @@ nav {
     justify-content: center;
     align-items: center;
     gap: 10px;
+    background-color: #ffffff;
 }
 
 .nav-toggle {
@@ -414,16 +419,16 @@ nav {
     flex-wrap: wrap;
     justify-content: center;
     align-items: center;
-    gap: 10px;
+    gap: 0;
 }
 
 nav a {
-    margin: 0 10px;
+    margin: 0;
     text-decoration: none;
     font-weight: normal;
     color: #007bff;
-    padding: 5px 12px;
-    border-radius: 4px;
+    padding: 15px 12px;
+    border-radius: 0;
     transition: all 0.2s ease;
 }
 
@@ -431,6 +436,7 @@ nav a.active {
     font-weight: bold;
     background-color: rgba(0, 123, 255, 0.1);
     text-decoration: none;
+    border-radius: 0;
 }
 
 nav a:hover {
