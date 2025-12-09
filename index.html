@@ -10,12 +10,41 @@
     <link rel="manifest" href="/assets/site.webmanifest" />
     <title></title>
     <link rel="stylesheet" href="style.css">
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <script src="https://unpkg.com/vue-router@4/dist/vue-router.global.js"></script>
+    <!-- Dynamically load Vue based on environment -->
+    <script>
+      // Detect if running locally (development) or in production
+      const isDevelopment = window.location.hostname === 'localhost' || 
+                           window.location.hostname === '127.0.0.1' ||
+                           window.location.hostname === '';
+      
+      // Load appropriate Vue build first
+      const vueScript = document.createElement('script');
+      vueScript.src = isDevelopment 
+        ? 'https://unpkg.com/vue@3/dist/vue.global.js'
+        : 'https://unpkg.com/vue@3/dist/vue.global.prod.js';
+      
+      // After Vue loads, load Vue Router
+      vueScript.onload = function() {
+        const routerScript = document.createElement('script');
+        routerScript.src = 'https://unpkg.com/vue-router@4/dist/vue-router.global.js';
+        
+        // After Vue Router loads, load app.js
+        routerScript.onload = function() {
+          const appScript = document.createElement('script');
+          appScript.src = 'scripts/app.js';
+          appScript.type = 'module';
+          document.body.appendChild(appScript);
+        };
+        
+        document.head.appendChild(routerScript);
+      };
+      
+      document.head.appendChild(vueScript);
+    </script>
 </head>
 <body>
     <div id="app">
     </div>
-    <script src="scripts/app.js" type="module"></script>
+    <!-- app.js is loaded dynamically after Vue and VueRouter -->
 </body>
 </html>

@@ -242,7 +242,14 @@ export const CardOverview = {
             } else {
                 // On foil/non-foil pages, load old regular card data
                 for (const setName in oldData) {
-                    this.allOldSetsCardData[setName] = this.isFoilPage ? oldData[setName].foil : oldData[setName].nonFoil;
+                    const oldSetData = oldData[setName];
+                    if (oldSetData) {
+                        const oldCards = this.isFoilPage ? oldSetData.foil : oldSetData.nonFoil;
+                        // Only set if the data exists and is an array
+                        if (oldCards && Array.isArray(oldCards)) {
+                            this.allOldSetsCardData[setName] = oldCards;
+                        }
+                    }
                 }
             }
             this.isDataLoaded = true;
@@ -256,17 +263,57 @@ export const CardOverview = {
       const response = await fetch('/list-files?path=' + cardDataDirectory);
       const files = await response.json();
 
+      // First, get the current data to see what sets we need
+      let currentSets = [];
+      try {
+        const currentResponse = await fetch('card-data/card_data.json');
+        const currentData = await currentResponse.json();
+        currentSets = Object.keys(currentData);
+      } catch (error) {
+        console.warn('Could not load current card data to determine sets:', error);
+      }
+
+      // Find the oldest file that contains all current sets
+      // This ensures we can compare prices for all sets, including newer ones like Gothic
       let oldestTimestamp = null;
       let oldestFile = null;
 
+      // Sort files by timestamp (oldest first)
+      const filesWithTimestamps = [];
       for (const file of files) {
         const timestamp = this.extractTimestampFromFilename(file);
         if (timestamp) {
-          if (!oldestTimestamp || timestamp < oldestTimestamp) {
+          filesWithTimestamps.push({ file, timestamp });
+        }
+      }
+      filesWithTimestamps.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+
+      // Try to find a file that contains all sets
+      // Start from oldest and work forward until we find one with all sets
+      for (const { file, timestamp } of filesWithTimestamps) {
+        try {
+          const fileResponse = await fetch(`${cardDataDirectory}/${file}`);
+          const fileData = await fileResponse.json();
+          const fileSets = Object.keys(fileData);
+          
+          // Check if this file contains all current sets
+          const hasAllSets = currentSets.every(setName => fileSets.includes(setName));
+          
+          if (hasAllSets) {
             oldestTimestamp = timestamp;
             oldestFile = file;
+            break; // Found a file with all sets, use it
           }
+        } catch (error) {
+          // Skip files that can't be loaded
+          continue;
         }
+      }
+
+      // If no file has all sets, fall back to the oldest file
+      // (This handles the case where a new set was just added)
+      if (!oldestFile && filesWithTimestamps.length > 0) {
+        oldestFile = filesWithTimestamps[0].file;
       }
 
       if (oldestFile) {
