@@ -30,6 +30,15 @@ h1 {
     color: #333;
     text-align: center;
 }
+
+.loading-indicator {
+    text-align: center;
+    padding: 40px 20px;
+    font-size: 1.2em;
+    color: #007bff;
+    font-weight: normal;
+}
+
 h2 {
     color: #666;
     border-bottom: 2px solid #ddd;

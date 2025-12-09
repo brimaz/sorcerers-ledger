@@ -754,7 +754,11 @@ export const CardOverview = {
     <div>
         <h1>{{ isPreconPage ? "Sorcery Preconstructed Deck Prices Overview" : (isSealedPage ? "Sorcery Sealed Products Prices Overview" : (isFoilPage ? "Sorcery Foil Card Prices Overview" : "Sorcery Non-Foil Card Prices Overview")) }}</h1>
 
-        <div class="sort-controls">
+        <div v-if="!isDataLoaded" class="loading-indicator">
+            Loading...
+        </div>
+
+        <div v-if="isDataLoaded" class="sort-controls">
             <label for="sort-select">Sort by:</label>
             <select id="sort-select" v-model="sortBy">
                 <option value="price-asc">Price (Low to High)</option>
@@ -782,7 +786,7 @@ export const CardOverview = {
             <label for="filter-by-price-change">Price Changes >= $1 (Last Week):<input type="checkbox" id="filter-by-price-change" v-model="filterPriceChangeStatus"></label>
         </div>
 
-        <CardDisplay
+        <CardDisplay v-if="isDataLoaded"
             :setsDataToRender="setsDataToRender"
             :allSetsCardData="allSetsCardData"
             :allSetsCardDataByName="allSetsCardDataByName"
