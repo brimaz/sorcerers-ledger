@@ -3,10 +3,14 @@ const https = require('https');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const compression = require('compression');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Enable compression for all responses
+app.use(compression());
 
 // Get paths relative to this server file
 const appDir = path.join(__dirname, '..');
@@ -40,10 +44,17 @@ app.get('/list-files', (req, res) => {
 
 // Serve static files from the app's public directory
 app.use(express.static(publicDir, {
+  maxAge: '1y', // Cache static assets for 1 year
+  etag: true,
+  lastModified: true,
   setHeaders: (res, filePath) => {
     // Ensure JavaScript files are served with correct MIME type
     if (filePath.endsWith('.js')) {
       res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+    }
+    // Special caching for large JSON data files - shorter cache with revalidation
+    if (filePath.includes('card-data') && filePath.endsWith('.json')) {
+      res.setHeader('Cache-Control', 'public, max-age=3600, must-revalidate'); // 1 hour cache
     }
   }
 }));
@@ -51,6 +62,9 @@ app.use(express.static(publicDir, {
 // Serve core frontend assets
 // Route /core serves from core/ directory, so /core/frontend/components/... works correctly
 app.use('/core', express.static(path.join(repoRoot, 'core'), {
+  maxAge: '1y', // Cache core components for 1 year
+  etag: true,
+  lastModified: true,
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('.js')) {
       res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
@@ -60,6 +74,9 @@ app.use('/core', express.static(path.join(repoRoot, 'core'), {
 
 // Serve app config files
 app.use('/apps', express.static(path.join(repoRoot, 'apps'), {
+  maxAge: '1y', // Cache config files for 1 year
+  etag: true,
+  lastModified: true,
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('.js')) {
       res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
@@ -68,7 +85,11 @@ app.use('/apps', express.static(path.join(repoRoot, 'apps'), {
 }));
 
 // Serve shared assets from root (favicon, etc.)
-app.use('/assets', express.static(path.join(repoRoot, 'assets')));
+app.use('/assets', express.static(path.join(repoRoot, 'assets'), {
+  maxAge: '1y', // Cache assets for 1 year
+  etag: true,
+  lastModified: true
+}));
 
 // Handle client-side routing - serve index.html for routes that don't match static files
 // Only match routes that don't have file extensions (to avoid catching .js, .css, etc.)
@@ -83,6 +104,10 @@ app.get('*', (req, res, next) => {
   }
   
   // Serve index.html for all other routes (SPA routing)
+  // Set no-cache for index.html to ensure users get updates
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.sendFile(path.join(publicDir, 'index.html'));
 });
 

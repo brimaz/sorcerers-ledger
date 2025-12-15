@@ -11,3 +11,4 @@ tcgplayer_token.json
 card-data/
 testing-scripts/
 .vscode/
+.venv-activate.ps1
