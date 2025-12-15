@@ -8,7 +8,14 @@ import json
 import requests
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
-from shared_logger import logger
+import sys
+
+# Add parent directory to path for imports
+current_dir = os.path.dirname(os.path.abspath(__file__))
+core_dir = os.path.dirname(os.path.dirname(current_dir))
+sys.path.insert(0, core_dir)
+
+from core.python.shared.shared_logger import logger
 
 # Load environment variables
 load_dotenv()
@@ -22,17 +29,24 @@ TCGPLAYER_API_VERSION = "v1.39.0"
 PUBLIC_KEY = os.getenv("TCGPLAYER_API_PUBLIC_KEY")
 PRIVATE_KEY = os.getenv("TCGPLAYER_API_PRIVATE_KEY")
 
-# Token file path
-TOKEN_FILE = "tcgplayer_token.json"
+# Token file path - shared across all apps at repo root
+# Calculate repo root: go up from core/python/pricing_pipeline to repo root
+# current_dir = core/python/pricing_pipeline/
+# dirname 1 = core/python/
+# dirname 2 = core/
+# dirname 3 = repo root
+_repo_root = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
+TOKEN_FILE = os.path.join(_repo_root, "tcgplayer_token.json")
 
 
-def get_bearer_token(force_refresh=False):
+def get_bearer_token(force_refresh=False, token_file_path=None):
     """
     Get a valid bearer token, refreshing if necessary.
     Only requests a new token if the current one is expired or about to expire.
     
     Args:
         force_refresh: If True, force a token refresh even if current token is valid
+        token_file_path: Optional path to token file (defaults to TOKEN_FILE)
         
     Returns:
         Bearer token string, or None if failed
@@ -41,10 +55,12 @@ def get_bearer_token(force_refresh=False):
         logger.error("TCGPLAYER_API_PUBLIC_KEY and TCGPLAYER_API_PRIVATE_KEY must be set in .env file")
         return None
     
+    token_file = token_file_path or TOKEN_FILE
+    
     # Check if token file exists and is still valid
-    if not force_refresh and os.path.exists(TOKEN_FILE):
+    if not force_refresh and os.path.exists(token_file):
         try:
-            with open(TOKEN_FILE, 'r') as f:
+            with open(token_file, 'r') as f:
                 token_info = json.load(f)
             
             expires_at_value = token_info.get("expires_at", "")
@@ -116,7 +132,7 @@ def get_bearer_token(force_refresh=False):
                 ".expires": token_data.get(".expires", "")
             }
             
-            with open(TOKEN_FILE, 'w') as f:
+            with open(token_file, 'w') as f:
                 json.dump(token_info, f, indent=4)
             
             logger.info(f"✓ Successfully obtained new TCGplayer bearer token (expires in {expires_in/3600:.1f} hours)")
@@ -140,7 +156,7 @@ def fetch_group_pricing(group_id: int, product_type_id: int = 128, bearer_token:
     
     Args:
         group_id: The group ID (set ID) to fetch pricing for
-        product_type_id: Product type ID (default: 128 for Sorcery: Contested Realm)
+        product_type_id: Product type ID (default: 128 for Trading Cards)
         bearer_token: Optional bearer token. If not provided, will get one automatically.
         
     Returns:
@@ -259,9 +275,8 @@ def fetch_product_details(product_ids: list, bearer_token: str = None):
     url = f"{TCGPLAYER_API_BASE_URL}/catalog/products/{product_ids_str}"
     
     # Add getExtendedFields=true to get all product attributes including rarity
-    # Try both string and boolean formats
     params = {
-        "getExtendedFields": True  # Use boolean instead of string
+        "getExtendedFields": True
     }
     
     headers = {

@@ -1,26 +1,27 @@
 const { createApp } = Vue
 const { createRouter, createWebHistory } = VueRouter
 
-import { CardOverview } from './components/CardOverview.js';
-import { TermsOfService } from './components/TermsOfService.js';
-import { PrivacyPolicy } from './components/PrivacyPolicy.js';
-import { Navigation } from './components/Navigation.js';
+import { CardOverview } from '../../../core/frontend/components/CardOverview.js';
+import { TermsOfService } from '../../../core/frontend/components/TermsOfService.js';
+import { PrivacyPolicy } from '../../../core/frontend/components/PrivacyPolicy.js';
+import { Navigation } from '../../../core/frontend/components/Navigation.js';
+import * as gameConfig from '../config/frontendConfig.js';
 
 const routes = [
   {
     path: '/',
     component: CardOverview,
-    props: route => ({ query: route.query })
+    props: route => ({ query: route.query, gameConfig })
   },
   {
     path: '/precon',
     component: CardOverview,
-    props: route => ({ query: { ...route.query, view: 'precon' } })
+    props: route => ({ query: { ...route.query, view: 'precon' }, gameConfig })
   },
   {
     path: '/sealed',
     component: CardOverview,
-    props: route => ({ query: { ...route.query, view: 'sealed' } })
+    props: route => ({ query: { ...route.query, view: 'sealed' }, gameConfig })
   },
   {
     path: '/terms-of-service',
@@ -55,3 +56,4 @@ createApp({
     </div>
   `
 }).use(router).mount('#app')
+

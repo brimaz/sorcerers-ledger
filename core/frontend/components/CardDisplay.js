@@ -1,32 +1,35 @@
 import { CardItem } from './CardItem.js';
 
 export const CardDisplay = {
-  props: [
-    'setsDataToRender',
-    'RARITIES',
-    'SET_ICONS',
-    'isFoilPage',
-    'isPreconPage',
-    'isSealedPage',
-    'filterPriceChangeStatus',
-    'allOldSetsCardData',
-    'allSetsCardData',
-    'allSetsCardDataByName',
-    'isGrouped',
-    'priceType',
-    'sortBy',
-    'showHoverImage',
-    'hideHoverImage',
-    'showMobileModal',
-    'tcgplayerTrackingLink',
-    'productInfoBySet',
-  ],
+  props: {
+    setsDataToRender: { type: Object, default: () => ({}) },
+    RARITIES: { type: Array, default: () => [] },
+    SET_ICONS: { type: Object, default: () => ({}) },
+    SET_ORDER: { type: Array, default: () => [] },
+    isFoilPage: { type: Boolean, default: false },
+    isPreconPage: { type: Boolean, default: false },
+    isSealedPage: { type: Boolean, default: false },
+    filterPriceChangeStatus: { type: Boolean, default: false },
+    allOldSetsCardData: { type: Object, default: () => ({}) },
+    allSetsCardData: { type: Object, default: () => ({}) },
+    allSetsCardDataByName: { type: Object, default: () => ({}) },
+    isGrouped: { type: Boolean, default: true },
+    priceType: { type: String, default: 'low' },
+    sortBy: { type: String, default: 'price-desc' },
+    showHoverImage: { type: Function },
+    hideHoverImage: { type: Function },
+    showMobileModal: { type: Function },
+    tcgplayerTrackingLink: { type: String, default: '' },
+    productInfoBySet: { type: Object, default: () => ({}) },
+    setSlugMap: { type: Object, default: () => ({}) },
+    tcgplayerCategorySlug: { type: String, default: 'sorcery-contested-realm' },
+  },
   template: `
     <div class="card-columns">
       <div v-for="setName in orderedSetNames" :key="setName" class="card-column">
         <div v-if="setsDataToRender[setName] || hasSetData(setName)" class="card-section">
           <h2>
-            <span v-if="SET_ICONS[setName]" class="set-icon">{{ SET_ICONS[setName] }}</span>
+            <span v-if="SET_ICONS && SET_ICONS[setName]" class="set-icon">{{ SET_ICONS[setName] }}</span>
             {{ setName }}
           </h2>
           <ul v-if="setsDataToRender[setName] && ((isPreconstructedSet(setName) || isSealedSet(setName)) ? (isPreconstructedSet(setName) ? hasPreconstructedCards(setName) : hasSealedCards(setName)) : (isGrouped ? hasCardsInGroupedSet(setName) : setsDataToRender[setName].length > 0))">
@@ -49,6 +52,8 @@ export const CardDisplay = {
                     :showMobileModal="showMobileModal"
                     :tcgplayerTrackingLink="tcgplayerTrackingLink"
                     :productInfoBySet="productInfoBySet"
+                    :setSlugMap="setSlugMap"
+                    :tcgplayerCategorySlug="tcgplayerCategorySlug"
                   />
                 </template>
                 <li v-else>No cards available for this rarity.</li>
@@ -68,8 +73,10 @@ export const CardDisplay = {
                 :showHoverImage="showHoverImage"
                 :hideHoverImage="hideHoverImage"
                 :showMobileModal="showMobileModal"
-                :tcgplayerTrackingLink="tcgplayerTrackingLink"
-                :productInfoBySet="productInfoBySet"
+                    :tcgplayerTrackingLink="tcgplayerTrackingLink"
+                    :productInfoBySet="productInfoBySet"
+                    :setSlugMap="setSlugMap"
+                    :tcgplayerCategorySlug="tcgplayerCategorySlug"
               />
             </template>
           </ul>
@@ -85,18 +92,8 @@ export const CardDisplay = {
   },
   computed: {
     orderedSetNames() {
-      // Define the chronological order of sets
-      const setOrder = [
-        'Alpha',
-        'Alpha (Preconstructed)',
-        'Beta',
-        'Beta (Preconstructed)',
-        'Dust Reward Promos',
-        'Arthurian Legends',
-        'Arthurian Legends Promo',
-        'Dragonlord',
-        'Gothic'
-      ];
+      // Use set order from config
+      const setOrder = this.SET_ORDER || [];
       
       // Get all set names from both setsDataToRender and allSetsCardData
       // This ensures we show sets even if they have no cards for the current view

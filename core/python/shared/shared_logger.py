@@ -41,7 +41,7 @@ def setup_logger(name: str = None) -> logging.Logger:
 
 
 # Create a default logger instance for convenience
-logger = setup_logger("sorcerers_ledger")
+logger = setup_logger("card_game_pricing")
 
 
 def log(message: str):

@@ -1,26 +1,21 @@
 """
-TCGplayer product info generator.
+Core TCGplayer product info generator.
 Fetches product details from TCGplayer catalog API using group IDs and creates JSON files per set.
+This is a generic version that accepts game configuration.
 """
 
 import json
 import os
+import sys
 from typing import Dict, List, Set
-from tcgplayer_api import get_bearer_token, fetch_product_details, fetch_group_pricing
-from shared_logger import logger
 
-# Sorcery set to group ID mappings
-SORCERY_SET_GROUP_IDS = {
-    "Alpha": 23335,
-    "Beta": 23336,
-    "Dust Reward Promos": 23514,
-    "Arthurian Legends Promo": 23778,
-    "Arthurian Legends": 23588,
-    "Dragonlord": 24378,
-    "Gothic": 24471,
-}
+# Add parent directory to path for imports
+current_dir = os.path.dirname(os.path.abspath(__file__))
+core_dir = os.path.dirname(os.path.dirname(current_dir))
+sys.path.insert(0, core_dir)
 
-TCGPLAYER_PRODUCT_TYPE_ID = 128  # Trading cards product type
+from core.python.pricing_pipeline.tcgplayer_api import get_bearer_token, fetch_product_details, fetch_group_pricing
+from core.python.shared.shared_logger import logger
 
 
 def collect_product_ids_from_group_pricing(group_id: int, product_type_id: int, bearer_token: str) -> Set[int]:
@@ -53,7 +48,7 @@ def collect_product_ids_from_group_pricing(group_id: int, product_type_id: int, 
     return product_ids
 
 
-def fetch_products_in_batches(product_ids: List[int], bearer_token: str, batch_size: int = 100):
+def fetch_products_in_batches(product_ids: List[int], bearer_token: str, batch_size: int = 100, rarity_normalizer: Dict[str, str] = None):
     """
     Fetch product details in batches to avoid URL length limits.
     
@@ -61,6 +56,7 @@ def fetch_products_in_batches(product_ids: List[int], bearer_token: str, batch_s
         product_ids: List of product IDs to fetch
         bearer_token: Bearer token for API authentication
         batch_size: Number of product IDs per batch (default: 100)
+        rarity_normalizer: Dictionary mapping lowercase rarity values to normalized rarity names
         
     Returns:
         Dictionary mapping product_id -> product details
@@ -82,7 +78,6 @@ def fetch_products_in_batches(product_ids: List[int], bearer_token: str, batch_s
                 product_id = product.get("productId")
                 if product_id:
                     # Extract rarity and card type from extendedData if available
-                    # API uses getExtendedFields=true but returns extendedData property
                     rarity = ""
                     card_type = ""
                     extended_data = product.get("extendedData", [])
@@ -94,15 +89,11 @@ def fetch_products_in_batches(product_ids: List[int], bearer_token: str, batch_s
                             
                             # Extract rarity
                             if field_name == "Rarity" or field_name.lower() == "rarity":
-                                # Normalize rarity values to match our expected format
-                                # TCGplayer might return different casing or variations
-                                rarity_map = {
-                                    "unique": "Unique",
-                                    "elite": "Elite",
-                                    "exceptional": "Exceptional",
-                                    "ordinary": "Ordinary"
-                                }
-                                rarity = rarity_map.get(field_value.lower(), field_value)
+                                # Normalize rarity values using provided normalizer
+                                if rarity_normalizer:
+                                    rarity = rarity_normalizer.get(field_value.lower(), field_value)
+                                else:
+                                    rarity = field_value
                             
                             # Extract card type
                             if field_name == "Card Type" or field_name.lower() == "card type":
@@ -115,13 +106,10 @@ def fetch_products_in_batches(product_ids: List[int], bearer_token: str, batch_s
                                 field_value = field.get("value", "")
                                 
                                 if not rarity and "rarity" in field_name:
-                                    rarity_map = {
-                                        "unique": "Unique",
-                                        "elite": "Elite",
-                                        "exceptional": "Exceptional",
-                                        "ordinary": "Ordinary"
-                                    }
-                                    rarity = rarity_map.get(field_value.lower(), field_value)
+                                    if rarity_normalizer:
+                                        rarity = rarity_normalizer.get(field_value.lower(), field_value)
+                                    else:
+                                        rarity = field_value
                                 
                                 if not card_type and ("card type" in field_name or "cardtype" in field_name):
                                     card_type = field_value
@@ -143,15 +131,23 @@ def fetch_products_in_batches(product_ids: List[int], bearer_token: str, batch_s
     return product_map
 
 
-def generate_product_info_files(output_dir: str = "card-data/product-info"):
+def generate_product_info_files(
+    set_group_ids: Dict[str, int],
+    product_type_id: int,
+    rarity_normalizer: Dict[str, str],
+    output_dir: str = "card-data/product-info"
+):
     """
     Generate product info JSON files per set from TCGplayer catalog API using group IDs.
     
     Args:
+        set_group_ids: Dictionary mapping set name -> group ID
+        product_type_id: TCGplayer product type ID
+        rarity_normalizer: Dictionary mapping lowercase rarity values to normalized rarity names
         output_dir: Directory to save product info JSON files (default: card-data/product-info)
     """
     logger.info("Starting TCGplayer product info generation using group IDs...")
-    logger.info(f"Processing {len(SORCERY_SET_GROUP_IDS)} sets")
+    logger.info(f"Processing {len(set_group_ids)} sets")
     
     # Get bearer token
     bearer_token = get_bearer_token()
@@ -163,7 +159,7 @@ def generate_product_info_files(output_dir: str = "card-data/product-info"):
     os.makedirs(output_dir, exist_ok=True)
     
     # Process each set
-    for set_name, group_id in SORCERY_SET_GROUP_IDS.items():
+    for set_name, group_id in set_group_ids.items():
         logger.info("=" * 60)
         logger.info(f"Processing set: {set_name} (Group ID: {group_id})")
         logger.info("=" * 60)
@@ -179,7 +175,7 @@ def generate_product_info_files(output_dir: str = "card-data/product-info"):
         
         # Collect product IDs from pricing data
         product_ids_set = collect_product_ids_from_group_pricing(
-            group_id, TCGPLAYER_PRODUCT_TYPE_ID, bearer_token
+            group_id, product_type_id, bearer_token
         )
         
         if not product_ids_set:
@@ -192,7 +188,7 @@ def generate_product_info_files(output_dir: str = "card-data/product-info"):
         product_ids_list = list(product_ids_set)
         
         # Fetch product details in batches
-        product_map = fetch_products_in_batches(product_ids_list, bearer_token)
+        product_map = fetch_products_in_batches(product_ids_list, bearer_token, rarity_normalizer=rarity_normalizer)
         
         if not product_map:
             logger.error(f"No product data retrieved for {set_name}")
@@ -216,6 +212,3 @@ def generate_product_info_files(output_dir: str = "card-data/product-info"):
     logger.info("Product info generation complete!")
     logger.info("=" * 60)
 
-
-if __name__ == "__main__":
-    generate_product_info_files()

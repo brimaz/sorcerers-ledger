@@ -1,0 +1,22 @@
+# Sensitive environment and secrets files
+.env
+.env.*
+.env.local
+.env.development
+.env.production
+.env.test
+
+# Common secrets/config files
+*.pem
+*.key
+*.crt
+*.pfx
+*.p12
+*.keystore
+*.jks
+
+# Local-only config overrides (if you use them)
+config.local.*
+*secrets*.*
+
+

@@ -1,19 +1,21 @@
 """
-TCGplayer pricing fetcher.
+Core TCGplayer pricing fetcher.
 Fetches pricing data from TCGplayer API using group IDs and maps it to the card data structure.
+This is a generic version that accepts game configuration.
 """
 
 import json
 import os
-from typing import Dict
-from tcgplayer_api import get_bearer_token, fetch_group_pricing
-from tcgplayer_product_info import SORCERY_SET_GROUP_IDS
-from shared_logger import logger
+import sys
+from typing import Dict, Callable
 
-# Rarities (keeping for data structure compatibility)
-RARITIES = ["Unique", "Elite", "Exceptional", "Ordinary"]
+# Add parent directory to path for imports
+current_dir = os.path.dirname(os.path.abspath(__file__))
+core_dir = os.path.dirname(os.path.dirname(current_dir))
+sys.path.insert(0, core_dir)
 
-TCGPLAYER_PRODUCT_TYPE_ID = 128  # Trading cards product type
+from core.python.pricing_pipeline.tcgplayer_api import get_bearer_token, fetch_group_pricing
+from core.python.shared.shared_logger import logger
 
 
 def _load_existing_card_data(output_file_path: str) -> dict:
@@ -107,109 +109,15 @@ def _is_foil_product(sub_type_name: str) -> bool:
     return sub_type_name and sub_type_name.lower() == "foil"
 
 
-def _is_sealed_preconstructed_product(product_name: str) -> bool:
-    """
-    Determine if a product is a sealed preconstructed product.
-    Includes deck boxes and decks without parentheses (e.g., "Preconstructed Deck Box", 
-    "Preconstructed Deck: Air").
-    Excludes singles with "(Preconstructed Deck)".
-    
-    Args:
-        product_name: The product name to check
-        
-    Returns:
-        True if the product is a sealed preconstructed product
-    """
-    if not product_name:
-        return False
-    
-    product_name_lower = product_name.lower()
-    
-    # Check for sealed preconstructed products
-    if "preconstructed deck box" in product_name_lower:
-        return True
-    if "preconstructed deck:" in product_name_lower:
-        return True
-    # Check for "Preconstructed Deck" without parentheses (sealed deck)
-    if "preconstructed deck" in product_name_lower and "(" not in product_name:
-        return True
-    
-    return False
-
-
-def _is_preconstructed_product(product_name: str) -> bool:
-    """
-    Determine if a product is a single card from a preconstructed deck.
-    Only includes items with "(Preconstructed Deck)" in the name.
-    Excludes sealed products like "Preconstructed Deck Box" or "Preconstructed Deck: ".
-    
-    Args:
-        product_name: The product name to check
-        
-    Returns:
-        True if the product is a single card from a preconstructed deck
-    """
-    if not product_name:
-        return False
-    
-    # Only items with "(Preconstructed Deck)" are singles from precons
-    return "(Preconstructed Deck)" in product_name
-
-
-def _is_sealed_product(product_name: str, set_name: str = "") -> bool:
-    """
-    Determine if a product is a sealed product (not an individual card).
-    Includes sealed preconstructed products (deck boxes, decks without parentheses).
-    Excludes single cards like "(Pledge Pack)" or "(Preconstructed Deck)" items.
-    
-    Args:
-        product_name: The product name to check
-        set_name: The set name (used for set-specific checks like "Dragonlord Box")
-        
-    Returns:
-        True if the product is sealed (booster box, booster case, booster pack, 
-        preconstructed deck box, preconstructed deck without parentheses, etc.)
-    """
-    if not product_name:
-        return False
-    
-    # Exclude single cards with parentheses (these are individual cards, not sealed)
-    if "(Pledge Pack)" in product_name or "(Preconstructed Deck)" in product_name:
-        return False
-    
-    product_name_lower = product_name.lower()
-    set_name_lower = set_name.lower() if set_name else ""
-    
-    # Check for sealed preconstructed products (deck boxes, decks without parentheses)
-    if "preconstructed deck box" in product_name_lower:
-        return True
-    if "preconstructed deck:" in product_name_lower:
-        return True
-    # Check for "Preconstructed Deck" without parentheses (sealed deck)
-    if "preconstructed deck" in product_name_lower and "(" not in product_name:
-        return True
-    
-    # Keywords that indicate sealed products
-    sealed_keywords = [
-        "booster box",
-        "booster box case",
-        "booster case",
-        "booster pack",
-        "pledge pack",  # Only sealed pledge packs (without parentheses)
-        "display",
-        "booster display"
-    ]
-    
-    # Check for set-specific sealed products (e.g., "Dragonlord Box" for Dragonlord set)
-    if set_name_lower and f"{set_name_lower} box" in product_name_lower:
-        return True
-    
-    return any(keyword in product_name_lower for keyword in sealed_keywords)
-
-
 def generate_card_data_from_tcgplayer(
     output_file_path: str,
-    product_type_id: int = 128,
+    set_group_ids: Dict[str, int],
+    rarities: list,
+    product_type_id: int,
+    product_info_dir: str,
+    is_sealed_precon_name_fn: Callable[[str], bool],
+    is_precon_single_name_fn: Callable[[str], bool],
+    is_sealed_name_fn: Callable[[str, str], bool],
     test_mode: bool = False,
     test_set_name: str = None
 ):
@@ -218,12 +126,18 @@ def generate_card_data_from_tcgplayer(
     
     Args:
         output_file_path: Path to output JSON file
-        product_type_id: Product type ID (default: 128 for Sorcery: Contested Realm)
+        set_group_ids: Dictionary mapping set name -> group ID
+        rarities: List of rarity names for this game
+        product_type_id: Product type ID
+        product_info_dir: Directory containing product info files
+        is_sealed_precon_name_fn: Function to check if a product name is a sealed preconstructed product
+        is_precon_single_name_fn: Function to check if a product name is a preconstructed single
+        is_sealed_name_fn: Function to check if a product name is a sealed product (takes name and set_name)
         test_mode: If True, only process test set
         test_set_name: Set name to test (if test_mode is True)
     """
     logger.info("Starting TCGplayer card data generation using group IDs...")
-    logger.info(f"Processing {len(SORCERY_SET_GROUP_IDS)} sets")
+    logger.info(f"Processing {len(set_group_ids)} sets")
     
     # Load existing card data for resume functionality
     all_sets_processed_data = _load_existing_card_data(output_file_path)
@@ -235,7 +149,7 @@ def generate_card_data_from_tcgplayer(
         return
     
     # Process each set
-    for set_name, group_id in SORCERY_SET_GROUP_IDS.items():
+    for set_name, group_id in set_group_ids.items():
         # Test mode filter
         if test_mode and set_name != test_set_name:
             continue
@@ -255,17 +169,17 @@ def generate_card_data_from_tcgplayer(
                 "foilByName": [],
                 "sealedByName": [],
                 "preconstructedByName": [],
-                "nonFoilByRarityPrice": {r: [] for r in RARITIES},
-                "foilByRarityPrice": {r: [] for r in RARITIES},
-                "nonFoilByRarityName": {r: [] for r in RARITIES},
-                "foilByRarityName": {r: [] for r in RARITIES},
+                "nonFoilByRarityPrice": {r: [] for r in rarities},
+                "foilByRarityPrice": {r: [] for r in rarities},
+                "nonFoilByRarityName": {r: [] for r in rarities},
+                "foilByRarityName": {r: [] for r in rarities},
             }
         
         # Get set data for checking existing products
         set_data = all_sets_processed_data[set_name]
         
         # Load product info for this set
-        product_info_map = _load_product_info_file(set_name)
+        product_info_map = _load_product_info_file(set_name, product_info_dir)
         if not product_info_map:
             logger.warning(f"No product info found for {set_name}, skipping...")
             continue
@@ -318,14 +232,14 @@ def generate_card_data_from_tcgplayer(
             # 4. Otherwise -> regular card (nonFoil/foil)
             
             # Check for sealed preconstructed products first (these go to sealed, not preconstructed)
-            is_sealed_precon = _is_sealed_preconstructed_product(product_name)
+            is_sealed_precon = is_sealed_precon_name_fn(product_name)
             
             # Check for preconstructed singles (only items with "(Preconstructed Deck)")
-            is_preconstructed = _is_preconstructed_product(product_name) if not is_sealed_precon else False
+            is_preconstructed = is_precon_single_name_fn(product_name) if not is_sealed_precon else False
             
             # Determine if this is a sealed product (booster boxes, cases, packs, sealed precons)
             # Exclude "(Pledge Pack)" singles - those are regular cards
-            is_sealed = is_sealed_precon or (_is_sealed_product(product_name, set_name) if not is_preconstructed else False)
+            is_sealed = is_sealed_precon or (is_sealed_name_fn(product_name, set_name) if not is_preconstructed else False)
             
             # Determine if this is a foil product (only for individual cards, not sealed or preconstructed)
             # Check both subTypeName and product name for foil indication
@@ -355,7 +269,7 @@ def generate_card_data_from_tcgplayer(
             # Get rarity from product info (only for individual cards, not sealed)
             rarity = product_details.get("rarity", "") if not is_sealed else ""
             
-            # Create card info object (removed rarity and slug fields)
+            # Create card info object
             card_info = {
                 "name": product_name,
                 "tcgplayerProductId": product_id,  # Store product ID for image lookup
@@ -375,7 +289,7 @@ def generate_card_data_from_tcgplayer(
                 all_sets_processed_data[set_name]["preconstructed"].append(card_info)
             else:
                 # Add to rarity-grouped lists if rarity is available
-                if rarity and rarity in RARITIES:
+                if rarity and rarity in rarities:
                     if is_foil:
                         all_sets_processed_data[set_name]["foilByRarityPrice"][rarity].append(card_info)
                         all_sets_processed_data[set_name]["foilByRarityName"][rarity].append(card_info)
@@ -419,7 +333,7 @@ def generate_card_data_from_tcgplayer(
         all_sets_processed_data[set_name]["preconstructed"] = sort_by_price(all_sets_processed_data[set_name]["preconstructed"])
         all_sets_processed_data[set_name]["preconstructedByName"] = sort_by_name(all_sets_processed_data[set_name]["preconstructed"])
         
-        for rarity_key in RARITIES:
+        for rarity_key in rarities:
             all_sets_processed_data[set_name]["nonFoilByRarityPrice"][rarity_key] = sort_by_price(
                 all_sets_processed_data[set_name]["nonFoilByRarityPrice"][rarity_key]
             )
@@ -437,3 +351,4 @@ def generate_card_data_from_tcgplayer(
     # Final save with sorted data
     _save_card_data_intermediate(all_sets_processed_data, output_file_path)
     logger.info(f"Final save complete. Card data saved to {output_file_path}")
+

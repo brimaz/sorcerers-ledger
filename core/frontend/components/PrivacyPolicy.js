@@ -1,19 +1,36 @@
 export const PrivacyPolicy = {
+  props: {
+    gameConfig: {
+      type: Object,
+      default: () => ({
+        GAME_TITLE: "Sorcerer's Ledger",
+        CONTACT_EMAIL: "contact@sorcerersledger.com"
+      })
+    }
+  },
+  computed: {
+    gameTitle() {
+      return this.gameConfig?.GAME_TITLE || "Sorcerer's Ledger";
+    },
+    contactEmail() {
+      return this.gameConfig?.CONTACT_EMAIL || "contact@sorcerersledger.com";
+    }
+  },
   mounted() {
-    document.title = "Sorcerer's Ledger - Privacy Policy";
+    document.title = `${this.gameTitle} - Privacy Policy`;
   },
   template: `
     <div class="privacy-page">
-        <h1>Sorcerer's Ledger Privacy Policy</h1>
+        <h1>{{ gameTitle }} Privacy Policy</h1>
         <p class="effective-date"><i>Effective Date: December 2<sup>nd</sup>, 2025</i></p>
         
-        <p>This Privacy Policy describes how Legendary Ledgers LLC ("Sorcerer's Ledger," "we," "us," or "our") uses and protects any information that you give us when you use our website.</p>
+        <p>This Privacy Policy describes how Legendary Ledgers LLC ("{{ gameTitle }}," "we," "us," or "our") uses and protects any information that you give us when you use our website.</p>
         
         <h2>1. Information We Do Not Collect Directly</h2>
         <p>We are committed to providing you with pricing data while maintaining your privacy.</p>
         <ul>
             <li><strong>No Personal Data Collection:</strong> We <strong>do not</strong> directly collect or store personally identifiable information (such as names, email addresses, payment information, physical addresses, or user accounts) from users accessing our site.</li>
-            <li><strong>No Tracking of Usage:</strong> We <strong>do not</strong> use cookies, pixels, or other third-party tracking technologies to record your specific browsing activity or usage patterns on Sorcerer's Ledger.</li>
+            <li><strong>No Tracking of Usage:</strong> We <strong>do not</strong> use cookies, pixels, or other third-party tracking technologies to record your specific browsing activity or usage patterns on {{ gameTitle }}.</li>
         </ul>
         
         <h2>2. Third-Party Data Collection</h2>
@@ -37,7 +54,7 @@ export const PrivacyPolicy = {
         <h2>6. Contact Us</h2>
         <p>If you have any questions about this Privacy Policy, please contact us:</p>
         <ul>
-            <li><strong>Email:</strong> <a href="mailto:contact@sorcerersledger.com">contact@sorcerersledger.com</a></li>
+            <li><strong>Email:</strong> <a :href="'mailto:' + contactEmail">{{ contactEmail }}</a></li>
         </ul>
     </div>
   `

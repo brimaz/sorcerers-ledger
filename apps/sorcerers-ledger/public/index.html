@@ -31,7 +31,7 @@
         // After Vue Router loads, load app.js
         routerScript.onload = function() {
           const appScript = document.createElement('script');
-          appScript.src = 'scripts/app.js';
+          appScript.src = 'app.js';
           appScript.type = 'module';
           document.body.appendChild(appScript);
         };

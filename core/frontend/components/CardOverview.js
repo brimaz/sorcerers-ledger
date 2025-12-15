@@ -6,6 +6,9 @@ export const CardOverview = {
     CardDisplay,
     CardItem,
   },
+  props: [
+    'gameConfig', // Should contain RARITIES, SET_ICONS, RARITY_PRICE_THRESHOLDS, SET_ORDER, PRECON_SOURCE_SETS, SET_SLUG_MAP, TCGPLAYER_CATEGORY_SLUG
+  ],
   data() {
     return {
       allSetsCardData: {},
@@ -16,24 +19,6 @@ export const CardOverview = {
       isFoilPage: false,
       isPreconPage: false,
       isSealedPage: false,
-      RARITIES: ["Unique", "Elite", "Exceptional", "Ordinary"],
-      SET_ICONS: {
-          "Alpha": "α",
-          "Beta": "β",
-          "Alpha (Preconstructed)": "α",
-          "Beta (Preconstructed)": "β",
-          "Dust Reward Promos": "★",
-          "Arthurian Legends Promo": "★",
-          "Arthurian Legends": "⚔️",
-          "Dragonlord": "🐉",
-          "Gothic": "🦇",
-      },
-      RARITY_PRICE_THRESHOLDS: {
-          "Unique": 1.5,
-          "Elite": 1.5,
-          "Exceptional": 0.75,
-          "Ordinary": 0.75,
-      },
       sortBy: 'price-desc',
       priceType: 'low',
       isGrouped: true,
@@ -55,6 +40,51 @@ export const CardOverview = {
       showScrollToTop: false,
       isDataLoaded: false,
     }
+  },
+  computed: {
+    RARITIES() {
+      return this.gameConfig?.RARITIES || ["Unique", "Elite", "Exceptional", "Ordinary"];
+    },
+    SET_ICONS() {
+      return this.gameConfig?.SET_ICONS || {};
+    },
+    RARITY_PRICE_THRESHOLDS() {
+      if (!this.gameConfig) return {};
+      const thresholds = this.gameConfig.RARITY_PRICE_THRESHOLDS;
+      return thresholds && typeof thresholds === 'object' ? thresholds : {};
+    },
+    SET_ORDER() {
+      return this.gameConfig?.SET_ORDER || [];
+    },
+    PRECON_SOURCE_SETS() {
+      if (!this.gameConfig) return [];
+      return Array.isArray(this.gameConfig.PRECON_SOURCE_SETS) 
+        ? this.gameConfig.PRECON_SOURCE_SETS 
+        : [];
+    },
+    SET_SLUG_MAP() {
+      return this.gameConfig?.SET_SLUG_MAP || {};
+    },
+    TCGPLAYER_CATEGORY_SLUG() {
+      return this.gameConfig?.TCGPLAYER_CATEGORY_SLUG || 'sorcery-contested-realm';
+    },
+    setsDataToRender() {
+      // Don't compute if gameConfig isn't ready yet
+      if (!this.gameConfig) {
+        return {};
+      }
+      return this.getSortedData(
+        this.allSetsCardData,
+        this.allSetsCardDataByName,
+        this.allSetsCardDataByRarityPrice,
+        this.allSetsCardDataByRarityName,
+        this.sortBy,
+        this.isGrouped,
+        this.isFiltered,
+        this.filterPriceChangeStatus,
+        this.priceType
+      );
+    },
   },
   async mounted() {
     this.initializeFromRoute();
@@ -127,12 +157,13 @@ export const CardOverview = {
                 }
             }
 
+            const gameTitle = this.gameConfig?.GAME_TITLE || "Sorcerer's Ledger";
             if (this.isPreconPage) {
-              document.title = "Sorcerer's Ledger - Precon";
+              document.title = `${gameTitle} - Precon`;
             } else if (this.isSealedPage) {
-              document.title = "Sorcerer's Ledger - Sealed";
+              document.title = `${gameTitle} - Sealed`;
             } else {
-              document.title = this.isFoilPage ? "Sorcerer's Ledger - Foil" : "Sorcerer's Ledger - Non-Foil";
+              document.title = this.isFoilPage ? `${gameTitle} - Foil` : `${gameTitle} - Non-Foil`;
             }
 
             const filterCardsWithProductIds = (cardArray) => {
@@ -151,7 +182,7 @@ export const CardOverview = {
 
             if (this.isPreconPage) {
                 // On precon page, load all preconstructed products as-is
-                const preconstructedSets = ['Alpha', 'Beta'];
+                const preconstructedSets = Array.isArray(this.PRECON_SOURCE_SETS) ? this.PRECON_SOURCE_SETS : [];
                 for (const sourceSetName of preconstructedSets) {
                     if (data[sourceSetName] && data[sourceSetName].preconstructed && data[sourceSetName].preconstructed.length > 0) {
                         const preconSetName = `${sourceSetName} (Preconstructed)`;
@@ -221,7 +252,7 @@ export const CardOverview = {
 
             if (this.isPreconPage) {
                 // On precon page, load all old preconstructed data as-is
-                const preconstructedSets = ['Alpha', 'Beta'];
+                const preconstructedSets = Array.isArray(this.PRECON_SOURCE_SETS) ? this.PRECON_SOURCE_SETS : [];
                 for (const sourceSetName of preconstructedSets) {
                     if (oldData[sourceSetName] && oldData[sourceSetName].preconstructed && oldData[sourceSetName].preconstructed.length > 0) {
                         const preconSetName = `${sourceSetName} (Preconstructed)`;
@@ -361,7 +392,8 @@ export const CardOverview = {
         }
       } catch (error) {
         console.warn('Could not list product info files, trying fallback method:', error);
-        const fallbackSetNames = ['Alpha', 'Beta', 'Arthurian_Legends', 'Dragonlord', 'Dust_Reward_Promos', 'Arthurian_Legends_Promo'];
+        // Try to load product info for sets in SET_ORDER
+        const fallbackSetNames = this.SET_ORDER.map(name => name.replace(/\s+/g, '_').replace(/[()]/g, ''));
         for (const setName of fallbackSetNames) {
           try {
             const response = await fetch(`card-data/product-info/product_info_${setName}.json`);
@@ -380,13 +412,15 @@ export const CardOverview = {
         }
       }
       
-      // Map preconstructed sets to use the same product info as their base sets
-      if (this.productInfoBySet['Alpha']) {
-        this.productInfoBySet['Alpha (Preconstructed)'] = this.productInfoBySet['Alpha'];
-      }
-      if (this.productInfoBySet['Beta']) {
-        this.productInfoBySet['Beta (Preconstructed)'] = this.productInfoBySet['Beta'];
-      }
+        // Map preconstructed sets to use the same product info as their base sets
+        const preconSets = this.PRECON_SOURCE_SETS;
+        if (Array.isArray(preconSets)) {
+          for (const sourceSetName of preconSets) {
+            if (this.productInfoBySet[sourceSetName]) {
+              this.productInfoBySet[`${sourceSetName} (Preconstructed)`] = this.productInfoBySet[sourceSetName];
+            }
+          }
+        }
     },
     getSortedData(setsData, setsDataByName, setsDataByRarityPrice, setsDataByRarityName, sortOption, isGrouped, isFiltered, isFilteredByPriceChange, priceType) {
       let processedData = {};
@@ -424,7 +458,8 @@ export const CardOverview = {
               for (const setName in processedData) {
                   filteredData[setName] = {};
                   for (const rarity in processedData[setName]) {
-                      const threshold = this.RARITY_PRICE_THRESHOLDS[rarity];
+                      const thresholds = this.RARITY_PRICE_THRESHOLDS || {};
+                      const threshold = thresholds[rarity] || 0;
                       filteredData[setName][rarity] = processedData[setName][rarity].filter(card => {
                           if (!card.tcgplayerProductId) {
                               return false;
@@ -527,7 +562,8 @@ export const CardOverview = {
                       if (!card.tcgplayerProductId) {
                           return false;
                       }
-                      const threshold = this.RARITY_PRICE_THRESHOLDS[card.rarity] || 0;
+                      const thresholds = this.RARITY_PRICE_THRESHOLDS || {};
+                      const threshold = thresholds[card.rarity] || 0;
                       const price = parseFloat(card[priceField] || 0);
                       return price === 0 || isNaN(price) || price > threshold;
                   });
@@ -642,18 +678,7 @@ export const CardOverview = {
         }
         
         if (!tcgplayerUrl) {
-            const setSlugMap = {
-                'Alpha': 'alpha',
-                'Beta': 'beta',
-                'Alpha (Preconstructed)': 'alpha',
-                'Beta (Preconstructed)': 'beta',
-                'Arthurian Legends': 'arthurian-legends',
-                'Arthurian Legends Promo': 'arthurian-legends-promo',
-                'Dust Reward Promos': 'dust-reward-promos',
-                'Dragonlord': 'dragonlord',
-                'Gothic': 'gothic',
-            };
-            const setSlug = setSlugMap[this.mobileModalSetName] || this.mobileModalSetName.toLowerCase().replace(/\s+/g, '-');
+            const setSlug = this.SET_SLUG_MAP[this.mobileModalSetName] || this.mobileModalSetName.toLowerCase().replace(/\s+/g, '-');
             
             let cardSlug = '';
             if (this.productInfoBySet && this.productInfoBySet[this.mobileModalSetName]) {
@@ -666,7 +691,8 @@ export const CardOverview = {
                 cardSlug = this.mobileModalCardName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
             }
             
-            tcgplayerUrl = `https://www.tcgplayer.com/product/${cardProductId}/sorcery-contested-realm-${setSlug}-${cardSlug}?Language=English`;
+            const categorySlug = this.TCGPLAYER_CATEGORY_SLUG;
+            tcgplayerUrl = `https://www.tcgplayer.com/product/${cardProductId}/${categorySlug}-${setSlug}-${cardSlug}?Language=English`;
         }
         
         const encodedUrl = encodeURIComponent(tcgplayerUrl);
@@ -735,24 +761,9 @@ export const CardOverview = {
         immediate: false,
     },
   },
-  computed: {
-    setsDataToRender() {
-      return this.getSortedData(
-        this.allSetsCardData,
-        this.allSetsCardDataByName,
-        this.allSetsCardDataByRarityPrice,
-        this.allSetsCardDataByRarityName,
-        this.sortBy,
-        this.isGrouped,
-        this.isFiltered,
-        this.filterPriceChangeStatus,
-        this.priceType
-      );
-    },
-  },
   template: `
     <div>
-        <h1>{{ isPreconPage ? "Sorcery Preconstructed Deck Prices Overview" : (isSealedPage ? "Sorcery Sealed Products Prices Overview" : (isFoilPage ? "Sorcery Foil Card Prices Overview" : "Sorcery Non-Foil Card Prices Overview")) }}</h1>
+        <h1>{{ isPreconPage ? (gameConfig?.GAME_TITLE || "Sorcerer's Ledger") + " Preconstructed Deck Prices Overview" : (isSealedPage ? (gameConfig?.GAME_TITLE || "Sorcerer's Ledger") + " Sealed Products Prices Overview" : (isFoilPage ? (gameConfig?.GAME_TITLE || "Sorcerer's Ledger") + " Foil Card Prices Overview" : (gameConfig?.GAME_TITLE || "Sorcerer's Ledger") + " Non-Foil Card Prices Overview")) }}</h1>
 
         <div v-if="!isDataLoaded" class="loading-indicator">
             Loading...
@@ -792,6 +803,7 @@ export const CardOverview = {
             :allSetsCardDataByName="allSetsCardDataByName"
             :RARITIES="RARITIES"
             :SET_ICONS="SET_ICONS"
+            :SET_ORDER="SET_ORDER"
             :isFoilPage="isFoilPage"
             :isPreconPage="isPreconPage"
             :isSealedPage="isSealedPage"
@@ -805,6 +817,8 @@ export const CardOverview = {
             :showMobileModal="showMobileModal.bind(this)"
             :tcgplayerTrackingLink="tcgplayerTrackingLink"
             :productInfoBySet="productInfoBySet"
+            :setSlugMap="SET_SLUG_MAP"
+            :tcgplayerCategorySlug="TCGPLAYER_CATEGORY_SLUG"
         />
 
         <div v-if="hoverImageUrl !== null" 
@@ -862,7 +876,7 @@ export const CardOverview = {
             <div class="affiliate-disclosure-content">
                 <h3>Affiliate Disclosure</h3>
                 <p>
-                    Links on Sorcerer's Ledger to card vendors like TCGplayer are affiliate links. If you make a purchase through these links, we may earn a commission at no extra cost to you. This helps support our site.
+                    Links on {{ gameConfig?.GAME_TITLE || "Sorcerer's Ledger" }} to card vendors like TCGplayer are affiliate links. If you make a purchase through these links, we may earn a commission at no extra cost to you. This helps support our site.
                 </p>
                 <p style="margin-top: 20px; font-size: 0.9em; color: #666;">
                     Copyright © Legendary Ledgers LLC, 2025

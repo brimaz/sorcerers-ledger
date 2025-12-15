@@ -1,21 +1,21 @@
 export const Navigation = {
+  props: {
+    gameConfig: {
+      type: Object,
+      default: () => ({
+        CONTACT_EMAIL: "contact@sorcerersledger.com"
+      })
+    }
+  },
   data() {
     return {
       isNavExpanded: false,
     }
   },
-  methods: {
-    toggleNav() {
-      this.isNavExpanded = !this.isNavExpanded;
-    },
-    isMobileOrTablet() {
-      return window.innerWidth <= 1024;
-    },
-    closeNav() {
-      this.isNavExpanded = false;
-    }
-  },
   computed: {
+    contactEmail() {
+      return this.gameConfig?.CONTACT_EMAIL || "contact@sorcerersledger.com";
+    },
     currentRoute() {
       return this.$route.path;
     },
@@ -31,6 +31,17 @@ export const Navigation = {
     },
     isSealedPage() {
       return this.currentRoute === '/sealed' || this.$route.query.view === 'sealed';
+    }
+  },
+  methods: {
+    toggleNav() {
+      this.isNavExpanded = !this.isNavExpanded;
+    },
+    isMobileOrTablet() {
+      return window.innerWidth <= 1024;
+    },
+    closeNav() {
+      this.isNavExpanded = false;
     }
   },
   template: `
@@ -90,7 +101,7 @@ export const Navigation = {
           @click="closeNav">
           Privacy Policy
         </router-link>
-        <a href="mailto:contact@sorcerersledger.com" class="contact-email" @click="closeNav">contact@sorcerersledger.com</a>
+        <a :href="'mailto:' + contactEmail" class="contact-email" @click="closeNav">{{ contactEmail }}</a>
       </div>
       <div v-if="isNavExpanded && isMobileOrTablet()" 
            class="nav-backdrop" 

@@ -11,6 +11,8 @@ export const CardItem = {
     'showMobileModal',
     'tcgplayerTrackingLink',
     'productInfoBySet',
+    'setSlugMap',
+    'tcgplayerCategorySlug',
   ],
   data() {
     return {
@@ -127,7 +129,8 @@ export const CardItem = {
         if (!cardSlug) {
           cardSlug = (this.card.name || '').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
         }
-        tcgplayerUrl = `https://www.tcgplayer.com/product/${cardProductId}/sorcery-contested-realm-${setSlug}-${cardSlug}?Language=English`;
+        const categorySlug = this.tcgplayerCategorySlug || 'sorcery-contested-realm';
+        tcgplayerUrl = `https://www.tcgplayer.com/product/${cardProductId}/${categorySlug}-${setSlug}-${cardSlug}?Language=English`;
       }
       
       const encodedUrl = encodeURIComponent(tcgplayerUrl);
@@ -176,19 +179,11 @@ export const CardItem = {
         return window.innerWidth <= 1024;
     },
     getSetSlug(setName) {
-      // Convert set name to URL-friendly slug
-      const setSlugMap = {
-        'Alpha': 'alpha',
-        'Beta': 'beta',
-        'Alpha (Preconstructed)': 'alpha',
-        'Beta (Preconstructed)': 'beta',
-        'Arthurian Legends': 'arthurian-legends',
-        'Arthurian Legends Promo': 'arthurian-legends-promo',
-        'Dust Reward Promos': 'dust-reward-promos',
-        'Dragonlord': 'dragonlord',
-        'Gothic': 'gothic',
-      };
-      return setSlugMap[setName] || setName.toLowerCase().replace(/\s+/g, '-');
+      // Convert set name to URL-friendly slug using config
+      if (this.setSlugMap && this.setSlugMap[setName]) {
+        return this.setSlugMap[setName];
+      }
+      return setName.toLowerCase().replace(/\s+/g, '-');
     },
     getCardProductId(cardName, setName) {
       // Get product ID directly from card data (stored in tcgplayerProductId)
