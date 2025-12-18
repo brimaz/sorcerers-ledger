@@ -6,6 +6,8 @@ export const CardDisplay = {
     RARITIES: { type: Array, default: () => [] },
     SET_ICONS: { type: Object, default: () => ({}) },
     SET_ORDER: { type: Array, default: () => [] },
+    excludedSets: { type: Array, default: () => [] },
+    excludedRarities: { type: Array, default: () => [] },
     isFoilPage: { type: Boolean, default: false },
     isPreconPage: { type: Boolean, default: false },
     isSealedPage: { type: Boolean, default: false },
@@ -117,19 +119,38 @@ export const CardDisplay = {
         // Sealed products are already excluded since we don't load them on non-foil page
         filteredSetNames = allSetNames.filter(setName => !setName.includes('(Preconstructed)'));
       }
-      
+
       // Sort: first by defined order, then any remaining sets alphabetically
-      return setOrder
-        .filter(setName => filteredSetNames.includes(setName))
-        .concat(filteredSetNames.filter(setName => !setOrder.includes(setName)).sort());
+      const ordered = setOrder
+        .filter(setName => filteredSetNames.includes(setName));
+      const remaining = filteredSetNames
+        .filter(setName => !setOrder.includes(setName))
+        .sort();
+      const allOrdered = ordered.concat(remaining);
+
+      // Apply inclusion filters: if the user has selected any sets,
+      // only show those selected sets. If none are selected, show all.
+      if (!Array.isArray(this.excludedSets) || this.excludedSets.length === 0) {
+        return allOrdered;
+      }
+      return allOrdered.filter(setName => this.isSetIncluded(setName));
     },
   },
   methods: {
     sortedRarities(setCardsData) {
       // Get all rarities that have cards, plus "Pledge Pack" if it exists
-      const rarities = this.RARITIES.filter(rarity => setCardsData[rarity] && setCardsData[rarity].length > 0);
+      const rarities = this.RARITIES.filter(
+        rarity =>
+          setCardsData[rarity] &&
+          setCardsData[rarity].length > 0 &&
+          this.isRarityIncluded(rarity)
+      );
       // Add "Pledge Pack" at the end if it exists
-      if (setCardsData['Pledge Pack'] && setCardsData['Pledge Pack'].length > 0) {
+      if (
+        setCardsData['Pledge Pack'] &&
+        setCardsData['Pledge Pack'].length > 0 &&
+        this.isRarityIncluded('Pledge Pack')
+      ) {
         rarities.push('Pledge Pack');
       }
       return rarities;
@@ -172,7 +193,7 @@ export const CardDisplay = {
         // Check if setsDataToRender is an array (not grouped) - if so, use it for sorting
         const renderData = this.setsDataToRender[setName];
         if (Array.isArray(renderData)) {
-          return renderData;
+          return this.filterCardsByRarity(renderData);
         }
         // Otherwise (grouped mode), sort the data based on sortBy
         const cards = this.allSetsCardData && this.allSetsCardData[setName] ? this.allSetsCardData[setName] : [];
@@ -180,9 +201,10 @@ export const CardDisplay = {
         
         const priceField = this.getPriceFieldName(this.priceType);
         
+        let sortedCards;
         if (this.sortBy === 'name-asc') {
           // Use the pre-sorted by name array if available
-          return this.allSetsCardDataByName && this.allSetsCardDataByName[setName] 
+          sortedCards = this.allSetsCardDataByName && this.allSetsCardDataByName[setName] 
             ? this.allSetsCardDataByName[setName] 
             : [...cards].sort((a, b) => {
                 const nameA = (a.name || '').toLowerCase();
@@ -198,15 +220,18 @@ export const CardDisplay = {
                 const nameB = (b.name || '').toLowerCase();
                 return nameA.localeCompare(nameB);
               });
-          return [...sortedByName].reverse();
+          sortedCards = [...sortedByName].reverse();
         } else if (this.sortBy === 'price-asc') {
-          return [...cards].sort((a, b) => parseFloat(a[priceField] || 0) - parseFloat(b[priceField] || 0));
+          sortedCards = [...cards].sort((a, b) => parseFloat(a[priceField] || 0) - parseFloat(b[priceField] || 0));
         } else {
           // price-desc (default)
-          return [...cards].sort((a, b) => parseFloat(b[priceField] || 0) - parseFloat(a[priceField] || 0));
+          sortedCards = [...cards].sort((a, b) => parseFloat(b[priceField] || 0) - parseFloat(a[priceField] || 0));
         }
+
+        return this.filterCardsByRarity(sortedCards);
       }
-      return this.setsDataToRender[setName] || [];
+      const cardsForSet = this.setsDataToRender[setName] || [];
+      return this.filterCardsByRarity(cardsForSet);
     },
     getPriceFieldName(priceType) {
       const priceFieldMap = {
@@ -216,6 +241,23 @@ export const CardDisplay = {
         'market': 'tcgplayerMarketPrice'
       };
       return priceFieldMap[priceType] || 'tcgplayerLowPrice';
+    },
+    isSetIncluded(setName) {
+      // Inclusion model: if no sets are selected, all are included.
+      if (!Array.isArray(this.excludedSets) || this.excludedSets.length === 0) return true;
+      return this.excludedSets.includes(setName);
+    },
+    isRarityIncluded(rarity) {
+      // Inclusion model: if no rarities are selected, all are included.
+      if (this.isPreconPage || this.isSealedPage) return true;
+      if (!Array.isArray(this.excludedRarities) || this.excludedRarities.length === 0) return true;
+      return this.excludedRarities.includes(rarity);
+    },
+    filterCardsByRarity(cards) {
+      if (!Array.isArray(cards)) return cards;
+      if (this.isPreconPage || this.isSealedPage) return cards;
+      if (!this.excludedRarities || this.excludedRarities.length === 0) return cards;
+      return cards.filter(card => this.isRarityIncluded(card.rarity));
     },
     getNoCardsMessage(setName) {
       // Check if the set has cards for the current view type

@@ -1,10 +1,11 @@
-const { createApp } = Vue
-const { createRouter, createWebHistory } = VueRouter
+const { createApp } = Vue;
+const { createRouter, createWebHistory } = VueRouter;
 
 import { CardOverview } from '/core/frontend/components/CardOverview.js';
 import { TermsOfService } from '/core/frontend/components/TermsOfService.js';
 import { PrivacyPolicy } from '/core/frontend/components/PrivacyPolicy.js';
 import { Navigation } from '/core/frontend/components/Navigation.js';
+import { WhatsNew } from '/core/frontend/components/WhatsNew.js';
 import * as gameConfigModule from '/apps/sorcerers-ledger/config/frontendConfig.js';
 
 // Convert module exports to plain object for Vue props
@@ -40,6 +41,11 @@ const routes = [
     props: route => ({ query: { ...route.query, view: 'sealed' }, gameConfig })
   },
   {
+    path: '/whats-new',
+    component: WhatsNew,
+    props: () => ({ gameConfig })
+  },
+  {
     path: '/terms-of-service',
     component: TermsOfService,
     props: route => ({ gameConfig })
@@ -53,19 +59,20 @@ const routes = [
     path: '/:pathMatch(.*)*',
     redirect: '/'
   }
-]
+];
 
 const router = createRouter({
   history: createWebHistory(),
   routes
-})
+});
 
 createApp({
   components: {
     Navigation,
     CardOverview,
     TermsOfService,
-    PrivacyPolicy
+    PrivacyPolicy,
+    WhatsNew
   },
   template: `
     <div>
@@ -76,7 +83,7 @@ createApp({
   data() {
     return {
       gameConfig
-    }
+    };
   }
-}).use(router).mount('#app')
+}).use(router).mount('#app');
 

@@ -24,6 +24,8 @@ export const CardOverview = {
       isGrouped: true,
       isFiltered: true,
       filterPriceChangeStatus: true,
+      excludedSets: [],
+      excludedRarities: [],
       mobileModalImageUrl: null,
       mobileModalCardName: null,
       mobileModalSetName: null,
@@ -39,6 +41,7 @@ export const CardOverview = {
       productInfoBySet: {},
       showScrollToTop: false,
       isDataLoaded: false,
+      isFilterModalVisible: false,
     }
   },
   computed: {
@@ -67,6 +70,36 @@ export const CardOverview = {
     },
     TCGPLAYER_CATEGORY_SLUG() {
       return this.gameConfig?.TCGPLAYER_CATEGORY_SLUG || 'sorcery-contested-realm';
+    },
+    availableSets() {
+      // Build a stable list of set names for filters using config order first
+      const setNames = Object.keys(this.allSetsCardData || {});
+      const orderedFromConfig = this.SET_ORDER.filter(name => setNames.includes(name));
+      const remaining = setNames
+        .filter(name => !this.SET_ORDER.includes(name))
+        .sort();
+      return [...orderedFromConfig, ...remaining];
+    },
+    hasActiveExclusionFilters() {
+      return (this.excludedSets && this.excludedSets.length > 0) ||
+        (this.excludedRarities && this.excludedRarities.length > 0);
+    },
+    activeExclusionCount() {
+      const setCount = this.excludedSets ? this.excludedSets.length : 0;
+      const rarityCount = this.excludedRarities ? this.excludedRarities.length : 0;
+      return setCount + rarityCount;
+    },
+    allSetsSelected() {
+      return Array.isArray(this.excludedSets) &&
+        Array.isArray(this.availableSets) &&
+        this.availableSets.length > 0 &&
+        this.excludedSets.length === this.availableSets.length;
+    },
+    allRaritiesSelected() {
+      return Array.isArray(this.excludedRarities) &&
+        Array.isArray(this.RARITIES) &&
+        this.RARITIES.length > 0 &&
+        this.excludedRarities.length === this.RARITIES.length;
     },
     setsDataToRender() {
       // Don't compute if gameConfig isn't ready yet
@@ -129,6 +162,32 @@ export const CardOverview = {
       
       if (query.filterPriceChange !== undefined) {
         this.filterPriceChangeStatus = query.filterPriceChange === 'true' || query.filterPriceChange === true;
+      }
+
+      // Excluded sets (comma-separated list)
+      if (query.hiddenSets) {
+        const raw = Array.isArray(query.hiddenSets) ? query.hiddenSets : String(query.hiddenSets).split(',');
+        const parsed = raw.filter(Boolean);
+        const sameLength = parsed.length === this.excludedSets.length;
+        const sameContent = sameLength && parsed.every((v, i) => v === this.excludedSets[i]);
+        if (!sameContent) {
+          this.excludedSets = parsed;
+        }
+      } else if (this.excludedSets.length > 0) {
+        this.excludedSets = [];
+      }
+
+      // Excluded rarities (comma-separated list)
+      if (query.hiddenRarities) {
+        const raw = Array.isArray(query.hiddenRarities) ? query.hiddenRarities : String(query.hiddenRarities).split(',');
+        const parsed = raw.filter(Boolean);
+        const sameLength = parsed.length === this.excludedRarities.length;
+        const sameContent = sameLength && parsed.every((v, i) => v === this.excludedRarities[i]);
+        if (!sameContent) {
+          this.excludedRarities = parsed;
+        }
+      } else if (this.excludedRarities.length > 0) {
+        this.excludedRarities = [];
       }
     },
     async loadAndRenderCards() {
@@ -584,17 +643,72 @@ export const CardOverview = {
     },
     navigateToSort() {
       // Preserve the current path (/, /precon, or /sealed) when updating query parameters
+      const newQuery = {
+        ...this.$route.query,
+        sort: this.sortBy,
+        priceType: this.priceType,
+        groupRarity: this.isGrouped,
+        filterValue: this.isFiltered,
+        filterPriceChange: this.filterPriceChangeStatus
+      };
+
+      if (this.excludedSets && this.excludedSets.length > 0) {
+        newQuery.hiddenSets = this.excludedSets.join(',');
+      } else {
+        delete newQuery.hiddenSets;
+      }
+
+      if (this.excludedRarities && this.excludedRarities.length > 0) {
+        newQuery.hiddenRarities = this.excludedRarities.join(',');
+      } else {
+        delete newQuery.hiddenRarities;
+      }
+
       this.$router.push({
         path: this.$route.path,
-        query: {
-          ...this.$route.query,
-          sort: this.sortBy,
-          priceType: this.priceType,
-          groupRarity: this.isGrouped,
-          filterValue: this.isFiltered,
-          filterPriceChange: this.filterPriceChangeStatus
-        }
+        query: newQuery
       });
+    },
+    openFilterModal() {
+      this.isFilterModalVisible = true;
+    },
+    closeFilterModal() {
+      this.isFilterModalVisible = false;
+    },
+    clearAllFilters() {
+      this.excludedSets = [];
+      this.excludedRarities = [];
+      this.isGrouped = false;
+      this.isFiltered = false;
+      this.filterPriceChangeStatus = false;
+      // Ensure route/query stay in sync with cleared state
+      this.navigateToSort();
+    },
+    resetFilters() {
+      // Restore default filter and sort state
+      this.sortBy = 'price-desc';
+      this.priceType = 'low';
+      this.isGrouped = true;
+      this.isFiltered = true;
+      this.filterPriceChangeStatus = true;
+      this.excludedSets = [];
+      this.excludedRarities = [];
+      // Sync URL/query parameters
+      this.navigateToSort();
+    },
+    toggleSelectAllSets() {
+      if (this.allSetsSelected) {
+        this.excludedSets = [];
+      } else {
+        this.excludedSets = [...this.availableSets];
+      }
+    },
+    toggleSelectAllRarities() {
+      if (this.allRaritiesSelected) {
+        this.excludedRarities = [];
+      } else {
+        this.excludedRarities = [...this.RARITIES];
+      }
     },
     isMobileOrTablet() {
         return window.innerWidth <= 1024;
@@ -719,6 +833,14 @@ export const CardOverview = {
     isGrouped: 'navigateToSort',
     isFiltered: 'navigateToSort',
     filterPriceChangeStatus: 'navigateToSort',
+    excludedSets: {
+      handler: 'navigateToSort',
+      deep: true,
+    },
+    excludedRarities: {
+      handler: 'navigateToSort',
+      deep: true,
+    },
     '$route'(to, from) {
       // Only reload data if the page type actually changed (path or view query param)
       // Don't reload if only filter/sort query params changed
@@ -731,6 +853,8 @@ export const CardOverview = {
         this.isGrouped = true;
         this.isFiltered = true;
         this.filterPriceChangeStatus = true;
+        this.excludedSets = [];
+        this.excludedRarities = [];
       }
       
       this.initializeFromRoute();
@@ -770,31 +894,43 @@ export const CardOverview = {
         </div>
 
         <div v-if="isDataLoaded" class="sort-controls">
-            <label for="sort-select">Sort by:</label>
-            <select id="sort-select" v-model="sortBy">
-                <option value="price-asc">Price (Low to High)</option>
-                <option value="price-desc">Price (High to Low)</option>
-                <option value="name-asc">Name (A to Z)</option>
-                <option value="name-desc">Name (Z to A)</option>
-            </select>
-            <label for="price-type-select">Price Type:</label>
-            <div class="price-type-wrapper">
-                <select id="price-type-select" 
-                        v-model="priceType">
-                    <option value="market" title="Not all prices are tracked by market">TCGplayer Market</option>
-                    <option value="low">TCGplayer Low</option>
-                    <option value="mid">TCGplayer Mid</option>
-                    <option value="high">TCGplayer High</option>
+            <div class="sort-group">
+                <label for="sort-select">Sort by:</label>
+                <select id="sort-select" v-model="sortBy">
+                    <option value="price-asc">Price (Low to High)</option>
+                    <option value="price-desc">Price (High to Low)</option>
+                    <option value="name-asc">Name (A to Z)</option>
+                    <option value="name-desc">Name (Z to A)</option>
                 </select>
-                <div v-if="priceType === 'market' && !isMobileOrTablet()" 
-                     class="price-type-tooltip">
-                    Not all prices are tracked by market
-                </div>
-                <span v-if="priceType === 'market'" class="price-type-disclaimer-mobile">*Not all prices are tracked by market</span>
             </div>
-            <label v-if="!isPreconPage && !isSealedPage" for="group-by-rarity">Group by Rarity:<input type="checkbox" id="group-by-rarity" v-model="isGrouped"></label>
-            <label v-if="!isPreconPage && !isSealedPage" for="filter-by-value">Show Only High Value Cards:<input type="checkbox" id="filter-by-value" v-model="isFiltered"></label>
-            <label for="filter-by-price-change">Price Changes >= $1 (Last Week):<input type="checkbox" id="filter-by-price-change" v-model="filterPriceChangeStatus"></label>
+            <div class="price-type-group">
+                <label for="price-type-select">Price Type:</label>
+                <div class="price-type-wrapper">
+                    <select id="price-type-select" 
+                            v-model="priceType">
+                        <option value="market" title="Not all prices are tracked by market">TCGplayer Market</option>
+                        <option value="low">TCGplayer Low</option>
+                        <option value="mid">TCGplayer Mid</option>
+                        <option value="high">TCGplayer High</option>
+                    </select>
+                    <div v-if="priceType === 'market' && !isMobileOrTablet()" 
+                         class="price-type-tooltip">
+                        Not all prices are tracked by market
+                    </div>
+                    <span v-if="priceType === 'market'" class="price-type-disclaimer-mobile">*Not all prices are tracked by market</span>
+                </div>
+            </div>
+            <button 
+                type="button" 
+                class="filter-button"
+                @click="openFilterModal">
+                Filters
+                <span 
+                  v-if="hasActiveExclusionFilters" 
+                  class="filter-button-badge">
+                  {{ activeExclusionCount }}
+                </span>
+            </button>
         </div>
 
         <CardDisplay v-if="isDataLoaded"
@@ -804,6 +940,8 @@ export const CardOverview = {
             :RARITIES="RARITIES"
             :SET_ICONS="SET_ICONS"
             :SET_ORDER="SET_ORDER"
+            :excludedSets="excludedSets"
+            :excludedRarities="excludedRarities"
             :isFoilPage="isFoilPage"
             :isPreconPage="isPreconPage"
             :isSealedPage="isSealedPage"
@@ -820,6 +958,125 @@ export const CardOverview = {
             :setSlugMap="SET_SLUG_MAP"
             :tcgplayerCategorySlug="TCGPLAYER_CATEGORY_SLUG"
         />
+
+        <div 
+            v-if="isFilterModalVisible" 
+            class="modal-overlay filter-modal-overlay"
+            @click="closeFilterModal">
+            <div class="modal-content filter-modal-content" @click.stop>
+                <button class="modal-close-button" @click="closeFilterModal">
+                    <img src="assets/sl-modal-close.png" alt="Close">
+                </button>
+                <h2 class="filter-modal-title">Filters</h2>
+                <div class="filter-modal-body">
+                    <section class="filter-section">
+                        <h3>General</h3>
+                        <div class="filter-options">
+                            <label 
+                                v-if="!isPreconPage && !isSealedPage" 
+                                for="group-by-rarity-modal" 
+                                class="filter-option">
+                                <input 
+                                    type="checkbox" 
+                                    id="group-by-rarity-modal" 
+                                    v-model="isGrouped">
+                                <span>Group by Rarity</span>
+                            </label>
+                            <label 
+                                v-if="!isPreconPage && !isSealedPage" 
+                                for="filter-by-value-modal" 
+                                class="filter-option">
+                                <input 
+                                    type="checkbox" 
+                                    id="filter-by-value-modal" 
+                                    v-model="isFiltered">
+                                <span>Show Only High Value Cards</span>
+                            </label>
+                            <label 
+                                for="filter-by-price-change-modal" 
+                                class="filter-option">
+                                <input 
+                                    type="checkbox" 
+                                    id="filter-by-price-change-modal" 
+                                    v-model="filterPriceChangeStatus">
+                                <span>Price Changes >= $1 (Last Week)</span>
+                            </label>
+                        </div>
+                    </section>
+
+                    <section class="filter-section">
+                        <div class="filter-section-header">
+                            <h3>Filter by Set</h3>
+                            <button 
+                                type="button" 
+                                class="filter-link-button"
+                                @click="toggleSelectAllSets">
+                                {{ allSetsSelected ? 'Clear All' : 'Select All' }}
+                            </button>
+                        </div>
+                        <div class="filter-options filter-options-scroll">
+                            <label 
+                                v-for="setName in availableSets" 
+                                :key="setName" 
+                                class="filter-option">
+                                <input 
+                                    type="checkbox" 
+                                    :value="setName" 
+                                    v-model="excludedSets">
+                                <span>{{ setName }}</span>
+                            </label>
+                        </div>
+                    </section>
+
+                    <section 
+                        v-if="!isPreconPage && !isSealedPage" 
+                        class="filter-section">
+                        <div class="filter-section-header">
+                            <h3>Filter by Rarity</h3>
+                            <button 
+                                type="button" 
+                                class="filter-link-button"
+                                @click="toggleSelectAllRarities">
+                                {{ allRaritiesSelected ? 'Clear All' : 'Select All' }}
+                            </button>
+                        </div>
+                        <div class="filter-options">
+                            <label 
+                                v-for="rarity in RARITIES" 
+                                :key="rarity" 
+                                class="filter-option">
+                                <input 
+                                    type="checkbox" 
+                                    :value="rarity" 
+                                    v-model="excludedRarities">
+                                <span>{{ rarity }}</span>
+                            </label>
+                        </div>
+                    </section>
+
+                    <div class="filter-actions">
+                        <button 
+                            type="button" 
+                            class="filter-clear-button"
+                            @click="resetFilters">
+                            Reset filters
+                        </button>
+                        <button 
+                            type="button" 
+                            class="filter-clear-button"
+                            @click="clearAllFilters">
+                            Clear all filters
+                        </button>
+                        <button 
+                            type="button" 
+                            class="filter-apply-button"
+                            @click="closeFilterModal">
+                            Done
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <div v-if="hoverImageUrl !== null" 
              class="hover-image show-hover-image"

@@ -101,6 +101,12 @@ export const Navigation = {
           @click="closeNav">
           Privacy Policy
         </router-link>
+        <router-link 
+          to="/whats-new" 
+          class="contact-email"
+          @click="closeNav">
+          What's New
+        </router-link>
         <a :href="'mailto:' + contactEmail" class="contact-email" @click="closeNav">{{ contactEmail }}</a>
       </div>
       <div v-if="isNavExpanded && isMobileOrTablet()" 
