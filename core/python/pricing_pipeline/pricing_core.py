@@ -262,9 +262,8 @@ def generate_card_data_from_tcgplayer(
             mid_price = safe_float(price_info.get("midPrice"))
             high_price = safe_float(price_info.get("highPrice"))
             market_price = safe_float(price_info.get("marketPrice"))
-            # If marketPrice is 0, fall back to midPrice
-            if market_price == 0.0:
-                market_price = safe_float(price_info.get("midPrice"))
+            # Store original market price (will be 0 if not available from TCGplayer)
+            # Don't fall back to mid - store 0 if market price is not available
             
             # Get rarity from product info (only for individual cards, not sealed)
             rarity = product_details.get("rarity", "") if not is_sealed else ""
@@ -276,7 +275,7 @@ def generate_card_data_from_tcgplayer(
                 "tcgplayerLowPrice": f"{low_price:.2f}",
                 "tcgplayerMidPrice": f"{mid_price:.2f}",
                 "tcgplayerHighPrice": f"{high_price:.2f}",
-                "tcgplayerMarketPrice": f"{market_price:.2f}",
+                "tcgplayerMarketPrice": f"{market_price:.2f}",  # Original from API (0 if not available)
                 "set_name": set_name,
             }
             

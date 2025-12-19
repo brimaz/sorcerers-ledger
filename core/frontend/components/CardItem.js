@@ -44,6 +44,20 @@ export const CardItem = {
         'market': 'tcgplayerMarketPrice'
       };
       const priceField = priceFieldMap[this.priceType] || 'tcgplayerLowPrice';
+      
+      // Special handling for market price: if it's 0, it means TCGplayer doesn't track market price for this card
+      if (this.priceType === 'market') {
+        const marketPrice = parseFloat(this.card.tcgplayerMarketPrice || 0);
+        
+        // If market price is 0, show N/A (market price not tracked by TCGplayer)
+        if (marketPrice === 0 || isNaN(marketPrice)) {
+          return 'N/A';
+        }
+        // Otherwise, show the actual market price
+        return `$ ${this.card.tcgplayerMarketPrice}`;
+      }
+      
+      // For other price types, use standard logic
       const priceValue = this.card[priceField] || 0;
       const price = parseFloat(priceValue);
       if (price === 0 || isNaN(price)) {

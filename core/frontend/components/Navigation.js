@@ -31,6 +31,9 @@ export const Navigation = {
     },
     isSealedPage() {
       return this.currentRoute === '/sealed' || this.$route.query.view === 'sealed';
+    },
+    isDeckCalculatorPage() {
+      return this.currentRoute === '/deck-calculator';
     }
   },
   methods: {
@@ -88,6 +91,14 @@ export const Navigation = {
           exact-active-class=""
           :class="{ active: isSealedPage }">
           Sealed
+        </router-link>
+        <router-link 
+          to="/deck-calculator" 
+          @click="closeNav"
+          active-class=""
+          exact-active-class=""
+          :class="{ active: isDeckCalculatorPage }">
+          Deck Calculator
         </router-link>
         <router-link 
           to="/terms-of-service" 
