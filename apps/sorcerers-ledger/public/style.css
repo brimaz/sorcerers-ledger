@@ -282,6 +282,10 @@ li:last-child {
     z-index: 0;
 }
 
+.mobile-card-modal-content .foil-image-wrapper {
+    margin-bottom: 24px;
+}
+
 /* Animated shimmer effect using pseudo-element */
 .foil-image-wrapper::after {
     content: '';
@@ -529,7 +533,7 @@ li:last-child {
     height: auto;
     object-fit: contain;
     display: block;
-    margin: 0 auto;
+    margin: 0 auto 24px auto;
     border-radius: 12px;
 }
 
@@ -962,6 +966,14 @@ nav a:hover {
     box-sizing: border-box;
 }
 
+/* Full-width affiliate disclosure for deck calculator */
+.deck-calculator-affiliate-footer {
+    margin-left: calc(-50vw + 50%);
+    margin-right: calc(-50vw + 50%);
+    width: 100vw;
+    max-width: 100vw;
+}
+
 .affiliate-disclosure-content {
     max-width: 1200px;
     margin: 0 auto;
@@ -1149,6 +1161,7 @@ nav a.router-link-exact-active {
     max-width: 1000px;
     margin: 0 auto;
     padding: 20px;
+    padding-bottom: 50px;
 }
 
 .deck-calculator-container h1 {
@@ -1394,7 +1407,7 @@ nav a.router-link-exact-active {
 .result-summary {
     display: flex;
     gap: 30px;
-    margin-bottom: 30px;
+    margin-bottom: 0;
     flex-wrap: wrap;
 }
 
@@ -1458,7 +1471,7 @@ nav a.router-link-exact-active {
 }
 
 .card-details {
-    margin-top: 20px;
+    margin-top: 0;
 }
 
 .card-details h4 {
@@ -1606,10 +1619,14 @@ nav a.router-link-exact-active {
 }
 
 .version-label {
+    display: inline-block;
+    text-align: center;
     padding: 4px 8px;
     font-size: 0.9em;
     font-weight: bold;
     border-radius: 4px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .version-label.foil-label {
@@ -1696,6 +1713,63 @@ nav a.router-link-exact-active {
     font-style: italic;
 }
 
+/* Split card styles */
+.split-row {
+    background-color: #f8f9fa;
+    border-left: 3px solid #007bff;
+}
+
+.split-indicator {
+    color: #007bff;
+    font-weight: bold;
+    margin-right: 5px;
+    font-size: 1.2em;
+}
+
+.split-button {
+    padding: 6px 12px;
+    border-radius: 4px;
+    border: 1px solid #007bff;
+    background-color: #007bff;
+    color: #ffffff;
+    font-size: 0.9em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.split-button:hover {
+    background-color: #0056b3;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+}
+
+.split-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background-color: #e7f3ff;
+    color: #007bff;
+    font-size: 0.85em;
+    font-weight: bold;
+}
+
+.unsplit-button {
+    padding: 6px 12px;
+    border-radius: 4px;
+    border: 1px solid #6c757d;
+    background-color: #6c757d;
+    color: #ffffff;
+    font-size: 0.9em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.unsplit-button:hover {
+    background-color: #5a6268;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(108, 117, 125, 0.3);
+}
+
 @media (max-width: 768px) {
     .deck-calculator-container {
         padding: 15px;
@@ -1761,7 +1835,7 @@ nav a.router-link-exact-active {
         white-space: nowrap; /* Prevent text wrapping in cells on mobile */
     }
     
-    /* Hide columns on mobile except quantity and card name */
+    /* Hide columns on mobile except quantity, card name, and actions */
     .card-details-table th.mobile-hidden-column,
     .card-details-table td.mobile-hidden-column {
         display: none;
@@ -1770,6 +1844,12 @@ nav a.router-link-exact-active {
     .card-details-table th.mobile-visible-column,
     .card-details-table td.mobile-visible-column {
         display: table-cell;
+    }
+    
+    /* Hide desktop actions column on mobile */
+    .card-details-table th.desktop-actions-header,
+    .card-details-table td.desktop-actions-cell {
+        display: none;
     }
     
     /* Make rows clickable on mobile */
@@ -1818,24 +1898,18 @@ nav a.router-link-exact-active {
     
     .mobile-card-modal-close {
         position: absolute;
-        top: 10px;
+        top: 5px;
         right: 10px;
         background: none;
         border: none;
-        font-size: 32px;
-        color: #666;
         cursor: pointer;
-        line-height: 1;
         padding: 0;
-        width: 32px;
-        height: 32px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        z-index: 10;
     }
     
-    .mobile-card-modal-close:hover {
-        color: #000;
+    .mobile-card-modal-close img {
+        width: 24px;
+        height: 24px;
     }
     
     .mobile-card-modal-title {
@@ -1850,6 +1924,9 @@ nav a.router-link-exact-active {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 15px;
+        max-width: 100%;
+        margin: 0 auto;
+        padding: 0 10px;
     }
     
     .mobile-card-modal-item {
@@ -1942,4 +2019,27 @@ nav a.router-link-exact-active {
     .calculation-result-spacer {
         height: 70px; /* Slightly less space on mobile */
     }
+}
+
+/* Desktop: Hide mobile actions column, show desktop actions column */
+@media (min-width: 769px) {
+    .card-details-table th.mobile-actions-header,
+    .card-details-table td.mobile-actions-cell {
+        display: none;
+    }
+    
+    .card-details-table th.desktop-actions-header,
+    .card-details-table td.desktop-actions-cell {
+        display: table-cell;
+    }
+}
+
+/* Card name links in deck calculator */
+.card-name-link {
+    color: #007bff;
+    text-decoration: none;
+}
+
+.card-name-link:hover {
+    text-decoration: underline;
 }

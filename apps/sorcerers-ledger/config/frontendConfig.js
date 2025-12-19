@@ -79,9 +79,7 @@ Aura (3)
 1
 1Atlantean Fate
 5
-Artifact (17)
-1Amethyst Core
-1
+Artifact (16)
 1Aquamarine Core
 1
 1Key to the City
@@ -104,7 +102,7 @@ Artifact (17)
 4
 1Rhongomyniad
 4
-Minion (31)
+Minion (32)
 1Highland Princess
 2
 1Polar Explorers
@@ -133,6 +131,8 @@ Minion (31)
 4
 1Ruler of Thul
 4
+1Selfsame Simulacrum
+4
 1Archangel Raphael
 5
 1Hounds of Ondaros
@@ -154,9 +154,9 @@ Magic (9)
 2
 1Recall
 2
+2Riptide
+2
 1Attack by Night
-3
-2Invigorate
 3
 1Mesmerism
 4
@@ -174,6 +174,8 @@ Site (30)
 4Pond
 1The Colour Out of Space
 3Windmill
+2Overpower
+1
 1Zap!
 1
 1Blink
@@ -184,13 +186,8 @@ Site (30)
 2
 1Old Salt Anchorman
 2
-1Rain of Arrows
-2
 1Riptide
 2
-1Murder of Crows
-3
-Riptide
 2Sjaelström
 3`
 };

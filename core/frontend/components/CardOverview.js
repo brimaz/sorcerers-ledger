@@ -126,8 +126,11 @@ export const CardOverview = {
       const configResponse = await fetch('/api/config');
       const config = await configResponse.json();
       this.tcgplayerTrackingLink = config.tcgplayerTrackingLink || '';
+      if (!this.tcgplayerTrackingLink) {
+        console.warn('CardOverview: TCGplayer tracking link is empty or not found in config', { tcgplayerTrackingLink: this.tcgplayerTrackingLink });
+      }
     } catch (error) {
-      console.warn('Could not load TCGplayer tracking link:', error);
+      console.warn('CardOverview: Failed to load TCGplayer tracking link from /api/config', error);
     }
 
     await this.loadProductInfoFiles();

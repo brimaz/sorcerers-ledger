@@ -4,7 +4,14 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const compression = require('compression');
-require('dotenv').config();
+
+// Get paths relative to this server file
+const appDir = path.join(__dirname, '..');
+const publicDir = path.join(appDir, 'public');
+const repoRoot = path.join(__dirname, '..', '..', '..');
+
+// Load .env from repo root
+require('dotenv').config({ path: path.join(repoRoot, '.env') });
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -12,15 +19,11 @@ const PORT = process.env.PORT || 3000;
 // Enable compression for all responses
 app.use(compression());
 
-// Get paths relative to this server file
-const appDir = path.join(__dirname, '..');
-const publicDir = path.join(appDir, 'public');
-const repoRoot = path.join(__dirname, '..', '..', '..');
-
 // Define API routes BEFORE static middleware to ensure they're matched first
 app.get('/api/config', (req, res) => {
+  const trackingLink = process.env.TCGPLAYER_API_TRACKING_LINK || '';
   res.json({
-    tcgplayerTrackingLink: process.env.TCGPLAYER_API_TRACKING_LINK || ''
+    tcgplayerTrackingLink: trackingLink
   });
 });
 

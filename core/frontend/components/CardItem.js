@@ -1,3 +1,5 @@
+import { generateTcgplayerCardLink } from '/core/frontend/utils/cardLinkUtils.js';
+
 export const CardItem = {
   props: [
     'card',
@@ -13,10 +15,21 @@ export const CardItem = {
     'productInfoBySet',
     'setSlugMap',
     'tcgplayerCategorySlug',
+    'gameConfig',
   ],
   data() {
     return {
     };
+  },
+  watch: {
+    tcgplayerTrackingLink(newVal, oldVal) {
+      // When tracking link changes from empty to a value, force update
+      // This ensures links update when the tracking link loads asynchronously
+      if (newVal && newVal !== oldVal) {
+        // Force re-evaluation of computed properties
+        this.$forceUpdate();
+      }
+    }
   },
   template: `
     <li>
@@ -116,39 +129,40 @@ export const CardItem = {
       return this.tcgplayerLink;
     },
     tcgplayerLink() {
-      if (!this.tcgplayerTrackingLink || !this.card.tcgplayerProductId) {
+      // Access the prop directly - Vue computed properties are reactive to props
+      const trackingLink = this.tcgplayerTrackingLink;
+      
+      // If tracking link is not available yet, return '#' (will update when it loads)
+      if (!trackingLink || !this.card || !this.card.tcgplayerProductId || !this.setName) {
         return '#';
       }
       
-      const cardProductId = this.card.tcgplayerProductId;
-      const cardProductIdStr = String(cardProductId);
-      let tcgplayerUrl = '';
+      // Build gameConfig object from props (CardItem receives individual props, not gameConfig)
+      const gameConfig = {
+        SET_SLUG_MAP: this.setSlugMap || {},
+        TCGPLAYER_CATEGORY_SLUG: this.tcgplayerCategorySlug || 'sorcery-contested-realm'
+      };
       
-      if (this.productInfoBySet && this.productInfoBySet[this.setName]) {
-        const productInfo = this.productInfoBySet[this.setName][cardProductIdStr];
-        if (productInfo && productInfo.url) {
-          tcgplayerUrl = productInfo.url;
-        }
+      // If gameConfig prop is provided, merge it (for future compatibility)
+      if (this.gameConfig) {
+        Object.assign(gameConfig, this.gameConfig);
       }
       
-      if (!tcgplayerUrl) {
-        const setSlug = this.getSetSlug(this.setName);
-        let cardSlug = '';
-        if (this.productInfoBySet && this.productInfoBySet[this.setName]) {
-          const productInfo = this.productInfoBySet[this.setName][cardProductIdStr];
-          if (productInfo && productInfo.cleanName) {
-            cardSlug = productInfo.cleanName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-          }
-        }
-        if (!cardSlug) {
-          cardSlug = (this.card.name || '').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-        }
-        const categorySlug = this.tcgplayerCategorySlug || 'sorcery-contested-realm';
-        tcgplayerUrl = `https://www.tcgplayer.com/product/${cardProductId}/${categorySlug}-${setSlug}-${cardSlug}?Language=English`;
+      // Use utility function to generate the link
+      try {
+        const link = generateTcgplayerCardLink({
+          card: this.card,
+          setName: this.setName,
+          cardName: this.card?.name,
+          gameConfig,
+          productInfoBySet: this.productInfoBySet || {},
+          tcgplayerTrackingLink: trackingLink
+        });
+        return link;
+      } catch (error) {
+        console.error('CardItem.tcgplayerLink: Error calling generateTcgplayerCardLink', error);
+        return '#';
       }
-      
-      const encodedUrl = encodeURIComponent(tcgplayerUrl);
-      return `${this.tcgplayerTrackingLink}?u=${encodedUrl}`;
     },
   },
   methods: {
