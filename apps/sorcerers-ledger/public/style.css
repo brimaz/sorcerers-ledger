@@ -596,6 +596,88 @@ nav a:hover {
     background-color: rgba(0, 123, 255, 0.05);
 }
 
+/* Nested navigation styles */
+.nav-nested-container {
+    position: relative;
+    display: inline-block;
+}
+
+.nav-nested-header {
+    margin: 0;
+    text-decoration: none;
+    font-weight: normal;
+    color: #007bff;
+    padding: 15px 12px;
+    border-radius: 0;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    user-select: none;
+}
+
+.nav-nested-header:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+}
+
+.nav-nested-header.active {
+    font-weight: bold;
+    background-color: rgba(0, 123, 255, 0.1);
+}
+
+.nav-nested-arrow {
+    font-size: 0.7em;
+    transition: transform 0.2s ease;
+    display: inline-block;
+}
+
+.nav-nested-header.expanded .nav-nested-arrow {
+    transform: rotate(180deg);
+}
+
+.nav-nested-children {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: white;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border-radius: 0 0 8px 8px;
+    min-width: 180px;
+    z-index: 100;
+    max-height: 0;
+    overflow: hidden;
+    transition: none;
+    padding: 0;
+}
+
+.nav-nested-children-visible {
+    max-height: 300px;
+    padding: 8px 0;
+}
+
+.nav-nested-child {
+    display: block;
+    width: 100%;
+    padding: 12px 20px;
+    text-decoration: none;
+    color: #007bff;
+    font-weight: normal;
+    transition: all 0.2s ease;
+    border-radius: 0;
+    margin: 0;
+    text-align: center;
+}
+
+.nav-nested-child:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+}
+
+.nav-nested-child.active {
+    font-weight: bold;
+    background-color: rgba(0, 123, 255, 0.1);
+}
+
 .contact-email {
     color: #666;
     font-size: 0.9em;
@@ -768,6 +850,45 @@ nav a:hover {
     
     .nav-links a.active {
         background-color: rgba(0, 123, 255, 0.15);
+    }
+    
+    /* Mobile nested navigation styles */
+    .nav-nested-container {
+        width: 100%;
+    }
+    
+    .nav-nested-header {
+        width: 100%;
+        text-align: left;
+        padding: 16px 20px;
+        font-size: 18px;
+        -webkit-text-size-adjust: 100%;
+    }
+    
+    .nav-nested-children {
+        position: static;
+        box-shadow: none;
+        border-radius: 0;
+        width: 100%;
+        background: rgba(0, 123, 255, 0.02);
+        text-align: center !important;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .nav-nested-child {
+        width: 100%;
+        text-align: center !important;
+        padding: 14px 20px;
+        font-size: 16px;
+        display: block;
+        margin: 0;
+    }
+    
+    /* Override nav-links a text-align for nested children */
+    .nav-nested-children .nav-nested-child {
+        text-align: center !important;
     }
 }
 
@@ -1157,14 +1278,16 @@ nav a.router-link-exact-active {
 }
 
 /* Deck Price Calculator */
-.deck-calculator-container {
+.deck-calculator-container,
+.trade-calculator-container {
     max-width: 1000px;
     margin: 0 auto;
     padding: 20px;
     padding-bottom: 50px;
 }
 
-.deck-calculator-container h1 {
+.deck-calculator-container h1,
+.trade-calculator-container h1 {
     text-align: center;
     margin-bottom: 30px;
 }
@@ -1202,6 +1325,45 @@ nav a.router-link-exact-active {
     font-size: 1em;
     background-color: #fff;
     cursor: pointer;
+}
+
+.foil-preference-selector {
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.foil-preference-selector label {
+    font-weight: bold;
+    color: #333;
+}
+
+.foil-preference-options {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+.foil-preference-option {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-weight: normal;
+}
+
+.foil-preference-option input[type="radio"] {
+    cursor: pointer;
+}
+
+.foil-preference-option:has(input:disabled) {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.foil-preference-option:has(input:disabled) input[type="radio"] {
+    cursor: not-allowed;
 }
 
 .deck-input-section {

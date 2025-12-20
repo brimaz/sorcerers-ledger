@@ -10,8 +10,28 @@ export const Navigation = {
   data() {
     return {
       isNavExpanded: false,
+      expandedNavItems: new Set(), // Track which nested nav items are expanded
     }
   },
+  mounted() {
+    // Add click listener to close nested menus when clicking outside (desktop)
+    this.handleDocumentClick = (event) => {
+      if (!this.isMobileOrTablet()) {
+        const navContainer = event.target.closest('.nav-nested-container');
+        if (!navContainer && this.expandedNavItems.size > 0) {
+          this.expandedNavItems.clear();
+        }
+      }
+    };
+    document.addEventListener('click', this.handleDocumentClick);
+  },
+  beforeUnmount() {
+    // Clean up click listener
+    if (this.handleDocumentClick) {
+      document.removeEventListener('click', this.handleDocumentClick);
+    }
+  },
+  // Removed auto-expand - nested menus should be collapsed by default
   computed: {
     contactEmail() {
       return this.gameConfig?.CONTACT_EMAIL || "contact@sorcerersledger.com";
@@ -34,6 +54,78 @@ export const Navigation = {
     },
     isDeckCalculatorPage() {
       return this.currentRoute === '/deck-calculator';
+    },
+    isTradeCalculatorPage() {
+      return this.currentRoute === '/trade-calculator';
+    },
+    isPriceToolsActive() {
+      return this.isDeckCalculatorPage || this.isTradeCalculatorPage;
+    },
+    // Navigation structure - abstracted for maintainability
+    navigationItems() {
+      return [
+        {
+          type: 'link',
+          to: { path: '/', query: {} },
+          label: 'Non-Foil Overview',
+          isActive: () => this.isCardOverview && !this.isFoilPage
+        },
+        {
+          type: 'link',
+          to: { path: '/', query: { view: 'foil' } },
+          label: 'Foil Overview',
+          isActive: () => this.isCardOverview && this.isFoilPage
+        },
+        {
+          type: 'link',
+          to: '/precon',
+          label: 'Precon',
+          isActive: () => this.isPreconPage
+        },
+        {
+          type: 'link',
+          to: '/sealed',
+          label: 'Sealed',
+          isActive: () => this.isSealedPage
+        },
+        {
+          type: 'nested',
+          label: 'Price Tools',
+          isActive: () => this.isPriceToolsActive,
+          children: [
+            {
+              type: 'link',
+              to: '/deck-calculator',
+              label: 'Deck Calculator',
+              isActive: () => this.isDeckCalculatorPage
+            },
+            {
+              type: 'link',
+              to: '/trade-calculator',
+              label: 'Trade Calculator',
+              isActive: () => this.isTradeCalculatorPage
+            }
+          ]
+        },
+        {
+          type: 'link',
+          to: '/terms-of-service',
+          label: 'Terms of Service',
+          cssClass: 'disclaimer-link'
+        },
+        {
+          type: 'link',
+          to: '/privacy-policy',
+          label: 'Privacy Policy',
+          cssClass: 'disclaimer-link'
+        },
+        {
+          type: 'link',
+          to: '/whats-new',
+          label: "What's New",
+          cssClass: 'contact-email'
+        }
+      ];
     }
   },
   methods: {
@@ -45,6 +137,18 @@ export const Navigation = {
     },
     closeNav() {
       this.isNavExpanded = false;
+      // Reset all expanded nested nav items
+      this.expandedNavItems.clear();
+    },
+    toggleNestedNav(itemLabel) {
+      if (this.expandedNavItems.has(itemLabel)) {
+        this.expandedNavItems.delete(itemLabel);
+      } else {
+        this.expandedNavItems.add(itemLabel);
+      }
+    },
+    isNestedNavExpanded(itemLabel) {
+      return this.expandedNavItems.has(itemLabel);
     }
   },
   template: `
@@ -60,64 +164,44 @@ export const Navigation = {
         </button>
       </div>
       <div class="nav-links" :class="{ 'nav-links-visible': !isMobileOrTablet() || isNavExpanded }">
-        <router-link 
-          :to="{ path: '/', query: {} }" 
-          @click="closeNav"
-          active-class=""
-          exact-active-class=""
-          :class="{ active: isCardOverview && !isFoilPage }">
-          Non-Foil Overview
-        </router-link>
-        <router-link 
-          :to="{ path: '/', query: { view: 'foil' } }" 
-          @click="closeNav"
-          active-class=""
-          exact-active-class=""
-          :class="{ active: isCardOverview && isFoilPage }">
-          Foil Overview
-        </router-link>
-        <router-link 
-          to="/precon" 
-          @click="closeNav"
-          active-class=""
-          exact-active-class=""
-          :class="{ active: isPreconPage }">
-          Precon
-        </router-link>
-        <router-link 
-          to="/sealed" 
-          @click="closeNav"
-          active-class=""
-          exact-active-class=""
-          :class="{ active: isSealedPage }">
-          Sealed
-        </router-link>
-        <router-link 
-          to="/deck-calculator" 
-          @click="closeNav"
-          active-class=""
-          exact-active-class=""
-          :class="{ active: isDeckCalculatorPage }">
-          Deck Calculator
-        </router-link>
-        <router-link 
-          to="/terms-of-service" 
-          class="disclaimer-link" 
-          @click="closeNav">
-          Terms of Service
-        </router-link>
-        <router-link 
-          to="/privacy-policy" 
-          class="disclaimer-link" 
-          @click="closeNav">
-          Privacy Policy
-        </router-link>
-        <router-link 
-          to="/whats-new" 
-          class="contact-email"
-          @click="closeNav">
-          What's New
-        </router-link>
+        <template v-for="item in navigationItems" :key="item.label">
+          <!-- Regular link items -->
+          <router-link 
+            v-if="item.type === 'link'"
+            :to="typeof item.to === 'string' ? item.to : item.to"
+            @click="closeNav"
+            active-class=""
+            exact-active-class=""
+            :class="[item.cssClass || '', { active: item.isActive ? item.isActive() : false }]">
+            {{ item.label }}
+          </router-link>
+          
+          <!-- Nested navigation items -->
+          <div v-else-if="item.type === 'nested'" class="nav-nested-container">
+            <div 
+              class="nav-nested-header"
+              :class="{ active: item.isActive ? item.isActive() : false, expanded: isNestedNavExpanded(item.label) }"
+              @click.stop="toggleNestedNav(item.label)">
+              <span>{{ item.label }}</span>
+              <span class="nav-nested-arrow">▼</span>
+            </div>
+            <div 
+              class="nav-nested-children"
+              :class="{ 'nav-nested-children-visible': isNestedNavExpanded(item.label) }">
+              <router-link 
+                v-for="child in item.children"
+                :key="child.label"
+                :to="typeof child.to === 'string' ? child.to : child.to"
+                @click="closeNav"
+                active-class=""
+                exact-active-class=""
+                :class="{ active: child.isActive ? child.isActive() : false }"
+                class="nav-nested-child">
+                {{ child.label }}
+              </router-link>
+            </div>
+          </div>
+        </template>
         <a :href="'mailto:' + contactEmail" class="contact-email" @click="closeNav">{{ contactEmail }}</a>
       </div>
       <div v-if="isNavExpanded && isMobileOrTablet()" 

@@ -7,6 +7,7 @@ import { PrivacyPolicy } from '/core/frontend/components/PrivacyPolicy.js';
 import { Navigation } from '/core/frontend/components/Navigation.js';
 import { WhatsNew } from '/core/frontend/components/WhatsNew.js';
 import { DeckPriceCalculator } from '/apps/sorcerers-ledger/components/DeckPriceCalculator.js';
+import { TradeCalculator } from '/apps/sorcerers-ledger/components/TradeCalculator.js';
 import * as gameConfigModule from '/apps/sorcerers-ledger/config/frontendConfig.js';
 
 // Convert module exports to plain object for Vue props
@@ -52,6 +53,11 @@ const routes = [
     props: route => ({ gameConfig })
   },
   {
+    path: '/trade-calculator',
+    component: TradeCalculator,
+    props: route => ({ gameConfig })
+  },
+  {
     path: '/terms-of-service',
     component: TermsOfService,
     props: route => ({ gameConfig })
@@ -79,7 +85,8 @@ createApp({
     TermsOfService,
     PrivacyPolicy,
     WhatsNew,
-    DeckPriceCalculator
+    DeckPriceCalculator,
+    TradeCalculator
   },
   template: `
     <div>

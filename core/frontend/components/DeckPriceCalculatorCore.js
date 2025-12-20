@@ -59,6 +59,7 @@ export const DeckPriceCalculatorCore = {
       calculationResult: null,
       cardData: {},
       priceType: 'low',
+      defaultFoilPreference: 'non-foil', // 'non-foil' or 'foil'
       isFormatting: false,
       isCalculating: false,
       errors: [],
@@ -244,6 +245,12 @@ export const DeckPriceCalculatorCore = {
     }
   },
   watch: {
+    priceType() {
+      // Recalculate totals when price type changes (if calculation result exists)
+      if (this.calculationResult) {
+        this.recalculateTotals();
+      }
+    },
     openCardModal(newIndex) {
       // Update image when modal opens
       if (newIndex !== null && this.isMobileOrTablet()) {
@@ -716,6 +723,44 @@ export const DeckPriceCalculatorCore = {
       // If we found a set in SET_ORDER with non-foil, return it; otherwise return first available with non-foil
       return mostRecentSet || setsWithNonFoil[0];
     },
+    getMostRecentSetWithFoil(availableSets, allMatches) {
+      /**
+       * Find the most recent set where foil exists, based on SET_ORDER.
+       * Returns the set name that appears last in SET_ORDER and has foil available.
+       * Falls back to first available set with foil if none match SET_ORDER.
+       */
+      const setOrder = this.gameConfig?.SET_ORDER || [];
+      
+      // First, find sets that have foil
+      const setsWithFoil = availableSets.filter(setName => 
+        allMatches[setName] && allMatches[setName].foil !== null
+      );
+      
+      if (setsWithFoil.length === 0) {
+        // No sets have foil, return null (caller should handle this)
+        return null;
+      }
+      
+      if (setOrder.length === 0) {
+        // No SET_ORDER defined, return first set with foil
+        return setsWithFoil[0];
+      }
+      
+      // Find the most recent set with foil (last in SET_ORDER that has foil)
+      let mostRecentSet = null;
+      let mostRecentIndex = -1;
+      
+      for (const setName of setsWithFoil) {
+        const index = setOrder.indexOf(setName);
+        if (index !== -1 && index > mostRecentIndex) {
+          mostRecentIndex = index;
+          mostRecentSet = setName;
+        }
+      }
+      
+      // If we found a set in SET_ORDER, return it; otherwise return first available
+      return mostRecentSet || setsWithFoil[0];
+    },
     parseDeckEntry(line) {
       const trimmed = line.trim();
       if (!trimmed) return null;
@@ -810,18 +855,51 @@ export const DeckPriceCalculatorCore = {
               
               // Initialize selection for this split card if not exists
               if (!this.cardSelections[splitCardKey]) {
-                const mostRecentSetWithNonFoil = this.getMostRecentSetWithNonFoil(availableSets, allMatches);
-                if (mostRecentSetWithNonFoil) {
-                  this.cardSelections[splitCardKey] = {
-                    selectedSet: mostRecentSetWithNonFoil,
-                    isFoil: false
-                  };
+                const preferFoil = this.defaultFoilPreference === 'foil';
+                if (preferFoil) {
+                  const mostRecentSetWithFoil = this.getMostRecentSetWithFoil(availableSets, allMatches);
+                  if (mostRecentSetWithFoil) {
+                    this.cardSelections[splitCardKey] = {
+                      selectedSet: mostRecentSetWithFoil,
+                      isFoil: true
+                    };
+                  } else {
+                    const mostRecentSetWithNonFoil = this.getMostRecentSetWithNonFoil(availableSets, allMatches);
+                    if (mostRecentSetWithNonFoil) {
+                      this.cardSelections[splitCardKey] = {
+                        selectedSet: mostRecentSetWithNonFoil,
+                        isFoil: false
+                      };
+                    } else {
+                      const mostRecentSet = this.getMostRecentSet(availableSets);
+                      this.cardSelections[splitCardKey] = {
+                        selectedSet: mostRecentSet,
+                        isFoil: false
+                      };
+                    }
+                  }
                 } else {
-                  const mostRecentSet = this.getMostRecentSet(availableSets);
-                  this.cardSelections[splitCardKey] = {
-                    selectedSet: mostRecentSet,
-                    isFoil: true
-                  };
+                  const mostRecentSetWithNonFoil = this.getMostRecentSetWithNonFoil(availableSets, allMatches);
+                  if (mostRecentSetWithNonFoil) {
+                    this.cardSelections[splitCardKey] = {
+                      selectedSet: mostRecentSetWithNonFoil,
+                      isFoil: false
+                    };
+                  } else {
+                    const mostRecentSetWithFoil = this.getMostRecentSetWithFoil(availableSets, allMatches);
+                    if (mostRecentSetWithFoil) {
+                      this.cardSelections[splitCardKey] = {
+                        selectedSet: mostRecentSetWithFoil,
+                        isFoil: true
+                      };
+                    } else {
+                      const mostRecentSet = this.getMostRecentSet(availableSets);
+                      this.cardSelections[splitCardKey] = {
+                        selectedSet: mostRecentSet,
+                        isFoil: false
+                      };
+                    }
+                  }
                 }
               }
               
@@ -847,18 +925,51 @@ export const DeckPriceCalculatorCore = {
             // Card not split - create single row
             // Initialize selection for this card if not exists
             if (!this.cardSelections[cardKey]) {
-              const mostRecentSetWithNonFoil = this.getMostRecentSetWithNonFoil(availableSets, allMatches);
-              if (mostRecentSetWithNonFoil) {
-                this.cardSelections[cardKey] = {
-                  selectedSet: mostRecentSetWithNonFoil,
-                  isFoil: false
-                };
+              const preferFoil = this.defaultFoilPreference === 'foil';
+              if (preferFoil) {
+                const mostRecentSetWithFoil = this.getMostRecentSetWithFoil(availableSets, allMatches);
+                if (mostRecentSetWithFoil) {
+                  this.cardSelections[cardKey] = {
+                    selectedSet: mostRecentSetWithFoil,
+                    isFoil: true
+                  };
+                } else {
+                  const mostRecentSetWithNonFoil = this.getMostRecentSetWithNonFoil(availableSets, allMatches);
+                  if (mostRecentSetWithNonFoil) {
+                    this.cardSelections[cardKey] = {
+                      selectedSet: mostRecentSetWithNonFoil,
+                      isFoil: false
+                    };
+                  } else {
+                    const mostRecentSet = this.getMostRecentSet(availableSets);
+                    this.cardSelections[cardKey] = {
+                      selectedSet: mostRecentSet,
+                      isFoil: false
+                    };
+                  }
+                }
               } else {
-                const mostRecentSet = this.getMostRecentSet(availableSets);
-                this.cardSelections[cardKey] = {
-                  selectedSet: mostRecentSet,
-                  isFoil: true
-                };
+                const mostRecentSetWithNonFoil = this.getMostRecentSetWithNonFoil(availableSets, allMatches);
+                if (mostRecentSetWithNonFoil) {
+                  this.cardSelections[cardKey] = {
+                    selectedSet: mostRecentSetWithNonFoil,
+                    isFoil: false
+                  };
+                } else {
+                  const mostRecentSetWithFoil = this.getMostRecentSetWithFoil(availableSets, allMatches);
+                  if (mostRecentSetWithFoil) {
+                    this.cardSelections[cardKey] = {
+                      selectedSet: mostRecentSetWithFoil,
+                      isFoil: true
+                    };
+                  } else {
+                    const mostRecentSet = this.getMostRecentSet(availableSets);
+                    this.cardSelections[cardKey] = {
+                      selectedSet: mostRecentSet,
+                      isFoil: false
+                    };
+                  }
+                }
               }
             }
             
@@ -1266,6 +1377,30 @@ export const DeckPriceCalculatorCore = {
             <option value="high">High</option>
             <option value="market">Market</option>
           </select>
+        </div>
+        
+        <div class="foil-preference-selector">
+          <label>Default Version:</label>
+          <div class="foil-preference-options">
+            <label class="foil-preference-option">
+              <input 
+                type="radio" 
+                name="foil-preference" 
+                value="non-foil" 
+                v-model="defaultFoilPreference"
+                :disabled="calculationResult !== null">
+              <span>All Non-Foil</span>
+            </label>
+            <label class="foil-preference-option">
+              <input 
+                type="radio" 
+                name="foil-preference" 
+                value="foil" 
+                v-model="defaultFoilPreference"
+                :disabled="calculationResult !== null">
+              <span>All Foil</span>
+            </label>
+          </div>
         </div>
         
         <div class="deck-input-section">
