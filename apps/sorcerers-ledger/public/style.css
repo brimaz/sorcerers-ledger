@@ -1632,13 +1632,16 @@ nav a.router-link-exact-active {
     color: #007bff;
 }
 
-.card-details {
+.calculation-result .card-details {
     margin-top: 0;
 }
 
-.card-details h4 {
+.calculation-result .card-details h4 {
     margin-bottom: 15px;
     color: #333;
+    text-align: left;
+    display: block;
+    width: 100%;
 }
 
 .card-details-table-wrapper {
@@ -2204,4 +2207,692 @@ nav a.router-link-exact-active {
 
 .card-name-link:hover {
     text-decoration: underline;
+}
+
+/* Trade Calculator Styles */
+.trade-search-section {
+    margin-bottom: 30px;
+}
+
+.search-label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: #333;
+}
+
+.card-search-input {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #ddd;
+    border-radius: 5px;
+    font-size: 1em;
+    box-sizing: border-box;
+}
+
+.card-search-input:focus {
+    outline: none;
+    border-color: #007bff;
+}
+
+.trade-toggle-section {
+    margin-bottom: 30px;
+    display: flex;
+    justify-content: center;
+}
+
+.toggle-container {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.toggle-label {
+    font-weight: bold;
+    color: #666;
+    transition: color 0.3s;
+}
+
+.toggle-label.active {
+    color: #007bff;
+}
+
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 30px;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: 0.4s;
+    border-radius: 30px;
+}
+
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 22px;
+    width: 22px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: 0.4s;
+    border-radius: 50%;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+    background-color: #007bff;
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+    transform: translateX(30px);
+}
+
+.search-results-section {
+    margin-bottom: 30px;
+}
+
+.search-results-section h3 {
+    margin-bottom: 15px;
+    color: #333;
+    border-bottom: 2px solid #ddd;
+    padding-bottom: 10px;
+}
+
+.search-results-list {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background-color: #f9f9f9;
+}
+
+.search-result-item {
+    padding: 12px 15px;
+    border-bottom: 1px solid #e0e0e0;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.search-result-item:hover {
+    background-color: #e8f4f8;
+}
+
+.search-result-item:last-child {
+    border-bottom: none;
+}
+
+.result-card-name {
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 5px;
+}
+
+.result-card-details {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9em;
+    color: #666;
+}
+
+.result-set-name {
+    font-style: italic;
+}
+
+.result-foil-badge {
+    background-color: #ffd700;
+    color: #333;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-weight: bold;
+    font-size: 0.85em;
+}
+
+.result-price {
+    margin-left: auto;
+    font-weight: bold;
+    color: #007bff;
+}
+
+.trade-summary-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.trade-side {
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    padding: 20px;
+    border: 2px solid #e0e0e0;
+}
+
+.trade-side h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #333;
+    border-bottom: 2px solid #ddd;
+    padding-bottom: 10px;
+}
+
+.mine-side {
+    border-color: #28a745;
+}
+
+.theirs-side {
+    border-color: #dc3545;
+}
+
+.trade-cards-list {
+    min-height: 100px;
+    max-height: 400px;
+    overflow-y: auto;
+    margin-bottom: 15px;
+}
+
+.trade-card-item {
+    background-color: white;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 12px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.trade-card-item:last-child {
+    margin-bottom: 0;
+}
+
+.card-info {
+    flex: 1;
+}
+
+.card-name {
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 5px;
+}
+
+.trade-card-item .card-name a:link,
+.trade-card-item .card-name a:visited,
+.trade-card-item .card-name a:active {
+    color: #333333;
+    text-decoration: none;
+}
+
+.trade-card-item .card-name a:hover {
+    color: #007bff;
+    text-decoration: underline;
+}
+
+.result-card-name a:link,
+.result-card-name a:visited,
+.result-card-name a:active {
+    color: #333333;
+    text-decoration: none;
+}
+
+.result-card-name a:hover {
+    color: #007bff;
+    text-decoration: underline;
+}
+
+.trade-card-item .card-details {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9em;
+    color: #666;
+}
+
+.foil-badge {
+    background-color: #ffd700;
+    color: #333;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-weight: bold;
+    font-size: 0.85em;
+}
+
+.card-price {
+    font-weight: bold;
+    color: #007bff;
+}
+
+.card-quantity-controls {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+.quantity {
+    font-weight: bold;
+    color: #333;
+}
+
+.remove-card-btn {
+    padding: 6px 12px;
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: background-color 0.2s;
+}
+
+.remove-card-btn:hover {
+    background-color: #c82333;
+}
+
+.empty-trade-side {
+    text-align: center;
+    padding: 40px 20px;
+    color: #999;
+    font-style: italic;
+}
+
+.side-total {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 2px solid #ddd;
+    text-align: right;
+    font-size: 1.1em;
+    color: #333;
+}
+
+.trade-difference-section {
+    margin-top: 30px;
+}
+
+.difference-display {
+    text-align: center;
+    padding: 20px;
+    border-radius: 8px;
+    background-color: #f9f9f9;
+}
+
+.difference-display.positive {
+    background-color: #d4edda;
+    border: 2px solid #28a745;
+}
+
+.difference-display.negative {
+    background-color: #f8d7da;
+    border: 2px solid #dc3545;
+}
+
+.difference-display.even {
+    background-color: #d1ecf1;
+    border: 2px solid #17a2b8;
+}
+
+.difference-display h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: #333;
+}
+
+.difference-amount {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: #333;
+}
+
+.difference-label {
+    display: block;
+    font-size: 0.8em;
+    font-weight: normal;
+    margin-top: 5px;
+    color: #666;
+}
+
+/* Image-based Search Results (Desktop and Mobile) */
+.search-results-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 15px;
+    padding: 15px;
+}
+
+/* Larger images on desktop */
+@media (min-width: 769px) {
+    .search-results-grid {
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 20px;
+        padding: 20px;
+    }
+}
+
+.search-result-card {
+    cursor: pointer;
+    background-color: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.search-result-card:active {
+    transform: scale(0.98);
+}
+
+.search-result-image-wrapper {
+    width: 100%;
+    padding-top: 140%; /* Aspect ratio for card images */
+    position: relative;
+    overflow: hidden;
+    background-color: #f0f0f0;
+}
+
+.search-result-image {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.search-result-image-placeholder {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    text-align: center;
+    font-size: 0.85em;
+    color: #666;
+    background-color: #f0f0f0;
+}
+
+.search-result-card-name {
+    padding: 8px;
+    font-size: 0.9em;
+    font-weight: bold;
+    color: #333;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Mobile Card Edit Modal */
+.mobile-card-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.mobile-card-modal-content {
+    background-color: white;
+    border-radius: 12px;
+    padding: 20px;
+    max-width: 400px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+}
+
+.mobile-card-modal-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 5px;
+    z-index: 10;
+}
+
+.mobile-card-modal-close img {
+    width: 24px;
+    height: 24px;
+}
+
+/* Container for modal images to maintain consistent size */
+.mobile-card-modal-content .modal-image-container {
+    width: 100%;
+    max-width: 300px;
+    height: 420px;
+    margin: 0 auto 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.mobile-card-modal-content .modal-image-container .modal-image {
+    width: 100%;
+    max-width: 300px;
+    max-height: 420px;
+    height: auto;
+    border-radius: 12px;
+    object-fit: contain;
+    display: block;
+}
+
+.mobile-card-modal-content .modal-image-container .foil-image-wrapper {
+    width: 100%;
+    max-width: 300px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.mobile-card-modal-content .modal-image-container .foil-image-wrapper img {
+    width: 100%;
+    max-width: 300px;
+    max-height: 420px;
+    height: auto;
+    border-radius: 12px;
+    object-fit: contain;
+    display: block;
+}
+
+.mobile-card-modal-content .modal-image-container .modal-no-image-text {
+    text-align: center;
+    color: #999;
+    font-style: italic;
+}
+
+.modal-no-image-text {
+    text-align: center;
+    padding: 40px 20px;
+    color: #999;
+    font-style: italic;
+    margin-bottom: 20px;
+}
+
+.mobile-card-modal-grid {
+    display: grid;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.mobile-card-modal-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.mobile-card-modal-label {
+    font-weight: bold;
+    color: #333;
+    font-size: 0.9em;
+}
+
+.mobile-card-modal-value {
+    color: #666;
+}
+
+.set-selector {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 1em;
+}
+
+.quantity-input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 1em;
+}
+
+.foil-toggle-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    justify-content: center;
+}
+
+.foil-toggle-label-left,
+.foil-toggle-label-right {
+    font-size: 0.9em;
+    color: #666;
+}
+
+.foil-toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 26px;
+}
+
+.foil-toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.foil-toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #007bff; /* Blue for non-foil (default/unchecked) */
+    transition: 0.4s;
+    border-radius: 26px;
+}
+
+.foil-toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 20px;
+    width: 20px;
+    left: 3px;
+    top: 50%;
+    transform: translateY(-50%);
+    background-color: white;
+    transition: 0.4s;
+    border-radius: 50%;
+}
+
+.foil-toggle-switch input:checked + .foil-toggle-slider {
+    background-color: #ffc107; /* Yellow for foil (checked) */
+}
+
+.foil-toggle-switch input:checked + .foil-toggle-slider:before {
+    transform: translateY(-50%) translateX(24px);
+}
+
+.mobile-card-modal-actions {
+    display: flex;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+.done-button {
+    padding: 12px 40px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 1.1em;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.done-button:hover {
+    background-color: #0056b3;
+}
+
+.done-button:active {
+    transform: scale(0.98);
+}
+
+/* Mobile Responsive Styles for Trade Calculator */
+@media (max-width: 768px) {
+    .trade-summary-section {
+        grid-template-columns: 1fr;
+    }
+    
+    .toggle-container {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .search-results-list {
+        max-height: 300px;
+    }
+    
+    .trade-cards-list {
+        max-height: 300px;
+    }
+    
+    .trade-card-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .card-quantity-controls {
+        width: 100%;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+    }
 }
