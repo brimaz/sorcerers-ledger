@@ -702,6 +702,12 @@ def get_or_refresh_access_token():
         new_token_info["expires_at"] = expires_at.isoformat()
         with open(TOKEN_FILE, 'w') as f:
             json.dump(new_token_info, f, indent=4)
+        # Set secure permissions after writing (Unix/Linux only, safe to ignore on Windows)
+        try:
+            os.chmod(TOKEN_FILE, 0o600)
+        except (OSError, NotImplementedError):
+            # Windows doesn't support Unix-style permissions, which is fine for local dev
+            pass
         logger.info("New eBay access token obtained and saved.")
         return new_token_info["access_token"]
     return None

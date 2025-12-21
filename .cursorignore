@@ -5,6 +5,8 @@
 .env.development
 .env.production
 .env.test
+ebay_token.json
+tcgplayer_token.json
 
 # Common secrets/config files
 *.pem

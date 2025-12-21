@@ -132,8 +132,15 @@ def get_bearer_token(force_refresh=False, token_file_path=None):
                 ".expires": token_data.get(".expires", "")
             }
             
+            # Write token file with secure permissions (600 - owner read/write only)
             with open(token_file, 'w') as f:
                 json.dump(token_info, f, indent=4)
+            # Set secure permissions after writing (Unix/Linux only, safe to ignore on Windows)
+            try:
+                os.chmod(token_file, 0o600)
+            except (OSError, NotImplementedError):
+                # Windows doesn't support Unix-style permissions, which is fine for local dev
+                pass
             
             logger.info(f"✓ Successfully obtained new TCGplayer bearer token (expires in {expires_in/3600:.1f} hours)")
             return bearer_token
