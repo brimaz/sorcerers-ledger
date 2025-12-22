@@ -18,11 +18,15 @@ const EXCHANGE_RATE_API_URL = 'https://api.exchangerate-api.com/v4/latest/USD';
 // Supported currencies (USD is base, so rate is always 1.0)
 const SUPPORTED_CURRENCIES = ['USD', 'EUR', 'AUD', 'JPY', 'NZD', 'CAD', 'GBP', 'CHF', 'SEK', 'NOK', 'DKK'];
 
+// Lock to prevent concurrent API calls
+let apiCallInProgress = null;
+
 /**
  * Fetch exchange rates from API
  * @returns {Promise<Object>} Exchange rates object
  */
 function fetchExchangeRatesFromAPI() {
+  console.log('Exchange rate API hit - fetching from exchangerate-api.com');
   return new Promise((resolve, reject) => {
     https.get(EXCHANGE_RATE_API_URL, (res) => {
       let data = '';
@@ -120,12 +124,31 @@ async function getExchangeRates(forceRefresh = false) {
 
   // If we need to refresh (or force refresh), fetch from API
   if (forceRefresh || needsRefresh(rates)) {
+    // If an API call is already in progress, wait for it to complete
+    if (apiCallInProgress) {
+      console.log('Exchange rate API call already in progress, waiting for it to complete...');
+      try {
+        const fetchedRates = await apiCallInProgress;
+        // Save the fetched rates and return them (don't clear lock - original caller will do that)
+        saveExchangeRatesToFile(fetchedRates);
+        return fetchedRates;
+      } catch (error) {
+        // If the in-progress call failed, continue with our own attempt
+        console.warn('Previous API call failed, attempting new fetch...');
+        apiCallInProgress = null;
+      }
+    }
+
+    // Start a new API call
     try {
       console.log('Fetching fresh exchange rates from API...');
-      rates = await fetchExchangeRatesFromAPI();
+      apiCallInProgress = fetchExchangeRatesFromAPI();
+      rates = await apiCallInProgress;
       saveExchangeRatesToFile(rates);
       console.log('Exchange rates updated successfully');
+      apiCallInProgress = null; // Clear the lock
     } catch (error) {
+      apiCallInProgress = null; // Clear the lock on error
       console.error('Failed to fetch exchange rates:', error.message);
       
       // If we have cached rates, use them even if stale
@@ -194,7 +217,7 @@ function startScheduledRefresh() {
       const rates = loadExchangeRatesFromFile();
       if (needsRefresh(rates)) {
         console.log('Scheduled refresh: Exchange rates are stale, fetching fresh rates...');
-        await getExchangeRates(true); // Force refresh
+        await getExchangeRates(false); // Don't force - let internal needsRefresh check handle it
       }
     } catch (error) {
       console.error('Scheduled refresh error:', error.message);
