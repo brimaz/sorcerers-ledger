@@ -12,28 +12,36 @@ const fs = require('fs');
 let getTimezoneDate;
 try {
   // Try to use date-fns-tz if available (more accurate)
-  const { zonedTimeToUtc, utcToZonedTime } = require('date-fns-tz');
-  getTimezoneDate = (hour, minute = 0) => {
-    const now = new Date();
-    const timezone = 'America/New_York';
-    
-    // Get current time in ET
-    const etNow = utcToZonedTime(now, timezone);
-    
-    // Create target time in ET
-    const targetET = new Date(etNow);
-    targetET.setHours(hour, minute, 0, 0);
-    
-    // If target time has passed today, move to tomorrow
-    if (targetET <= etNow) {
-      targetET.setDate(targetET.getDate() + 1);
-    }
-    
-    // Convert ET time back to UTC
-    return zonedTimeToUtc(targetET, timezone);
-  };
+  // Note: date-fns-tz v3.x uses toZonedTime/fromZonedTime instead of utcToZonedTime/zonedTimeToUtc
+  const { toZonedTime, fromZonedTime } = require('date-fns-tz');
+  
+  // Check if functions are actually available
+  if (typeof toZonedTime === 'function' && typeof fromZonedTime === 'function') {
+    getTimezoneDate = (hour, minute = 0) => {
+      const now = new Date();
+      const timezone = 'America/New_York';
+      
+      // Get current time in ET (toZonedTime converts UTC to timezone)
+      const etNow = toZonedTime(now, timezone);
+      
+      // Create target time in ET
+      const targetET = new Date(etNow);
+      targetET.setHours(hour, minute, 0, 0);
+      
+      // If target time has passed today, move to tomorrow
+      if (targetET <= etNow) {
+        targetET.setDate(targetET.getDate() + 1);
+      }
+      
+      // Convert ET time back to UTC (fromZonedTime converts timezone to UTC)
+      return fromZonedTime(targetET, timezone);
+    };
+  } else {
+    throw new Error('date-fns-tz functions not available');
+  }
 } catch (e) {
   // Fallback: Manual calculation (approximate, handles DST reasonably)
+  console.warn('date-fns-tz not available, using fallback timezone calculation:', e.message);
   getTimezoneDate = (hour, minute = 0) => {
     const now = new Date();
     const timezone = 'America/New_York';
