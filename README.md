@@ -142,6 +142,7 @@ TCGPLAYER_API_PUBLIC_KEY=your_public_key
 TCGPLAYER_API_PRIVATE_KEY=your_private_key
 TCGPLAYER_API_TRACKING_LINK=your_affiliate_link
 PORT=3000
+ENABLE_BATCH_UPDATE_SCHEDULER=true  # Set to false to disable automatic scheduling
 ```
 
 ## Dependencies

@@ -9,6 +9,12 @@ import { WhatsNew } from '/core/frontend/components/WhatsNew.js';
 import { DeckPriceCalculator } from '/apps/sorcerers-ledger/components/DeckPriceCalculator.js';
 import { TradeCalculator } from '/apps/sorcerers-ledger/components/TradeCalculator.js';
 import * as gameConfigModule from '/apps/sorcerers-ledger/config/frontendConfig.js';
+import { fetchExchangeRates } from '/core/frontend/utils/currencyUtils.js';
+
+// Load exchange rates on app startup
+fetchExchangeRates().catch(err => {
+  console.warn('Failed to load exchange rates on startup:', err);
+});
 
 // Convert module exports to plain object for Vue props
 const gameConfig = {

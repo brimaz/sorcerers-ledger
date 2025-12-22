@@ -9,6 +9,8 @@ import { normalizeToAmericanEnglish } from '/core/frontend/utils/textUtils.js';
 import { generateTcgplayerCardLink } from '/core/frontend/utils/cardLinkUtils.js';
 import { Info } from 'lucide-vue-next';
 
+import { formatPrice as formatPriceUtil, getSelectedCurrency } from '/core/frontend/utils/currencyUtils.js';
+
 export const TradeCalculatorCore = {
   components: {
     Info
@@ -42,7 +44,9 @@ export const TradeCalculatorCore = {
       // Track which fallback tooltip is visible
       visibleFallbackTooltip: null,
       // Track search debounce
-      searchTimeout: null
+      searchTimeout: null,
+      // Currency state
+      selectedCurrency: getSelectedCurrency()
     }
   },
   computed: {
@@ -64,6 +68,13 @@ export const TradeCalculatorCore = {
     await this.loadCardData();
     // Load TCGplayer data (don't block on it, but start loading)
     this.loadTcgplayerData();
+    // Listen for currency changes
+    window.addEventListener('currency-changed', this.handleCurrencyChange);
+    window.addEventListener('currency-updated', this.handleCurrencyUpdate);
+  },
+  beforeUnmount() {
+    window.removeEventListener('currency-changed', this.handleCurrencyChange);
+    window.removeEventListener('currency-updated', this.handleCurrencyUpdate);
   },
   watch: {
     priceType() {
@@ -641,13 +652,16 @@ export const TradeCalculatorCore = {
     getTradeDifference() {
       return this.getTheirTotal() - this.getMyTotal();
     },
+    handleCurrencyChange(event) {
+      this.selectedCurrency = event.detail.currency;
+      this.$forceUpdate();
+    },
+    handleCurrencyUpdate() {
+      this.selectedCurrency = getSelectedCurrency();
+      this.$forceUpdate();
+    },
     formatPrice(price) {
-      return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      }).format(price);
+      return formatPriceUtil(price, { currency: this.selectedCurrency });
     }
   },
   template: `

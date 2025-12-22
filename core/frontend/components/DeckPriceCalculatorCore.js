@@ -32,6 +32,7 @@
   */
 import { normalizeToAmericanEnglish } from '/core/frontend/utils/textUtils.js';
 import { generateTcgplayerCardLink } from '/core/frontend/utils/cardLinkUtils.js';
+import { formatPrice, getSelectedCurrency } from '/core/frontend/utils/currencyUtils.js';
 import { ArrowUpDown, ArrowUp, ArrowDown, Info } from 'lucide-vue-next';
 
 export const DeckPriceCalculatorCore = {
@@ -95,8 +96,19 @@ export const DeckPriceCalculatorCore = {
       // Track which fallback tooltip is visible (for mobile)
       visibleFallbackTooltip: null,
       // Track which card's modal is open (for mobile)
-      openCardModal: null
+      openCardModal: null,
+      // Currency state
+      selectedCurrency: getSelectedCurrency()
     }
+  },
+  mounted() {
+    // Listen for currency changes
+    window.addEventListener('currency-changed', this.handleCurrencyChange);
+    window.addEventListener('currency-updated', this.handleCurrencyUpdate);
+  },
+  beforeUnmount() {
+    window.removeEventListener('currency-changed', this.handleCurrencyChange);
+    window.removeEventListener('currency-updated', this.handleCurrencyUpdate);
   },
   computed: {
     gameTitle() {
@@ -222,10 +234,15 @@ export const DeckPriceCalculatorCore = {
     this.loadTcgplayerData();
     // Close tooltip when clicking outside (for mobile)
     document.addEventListener('click', this.handleDocumentClick);
+    // Listen for currency changes
+    window.addEventListener('currency-changed', this.handleCurrencyChange);
+    window.addEventListener('currency-updated', this.handleCurrencyUpdate);
   },
   beforeUnmount() {
     // Clean up event listener
     document.removeEventListener('click', this.handleDocumentClick);
+    window.removeEventListener('currency-changed', this.handleCurrencyChange);
+    window.removeEventListener('currency-updated', this.handleCurrencyUpdate);
   },
   watch: {
     deckInput() {
@@ -279,6 +296,17 @@ export const DeckPriceCalculatorCore = {
     }
   },
   methods: {
+    handleCurrencyChange(event) {
+      this.selectedCurrency = event.detail.currency;
+      this.$forceUpdate();
+    },
+    handleCurrencyUpdate() {
+      this.selectedCurrency = getSelectedCurrency();
+      this.$forceUpdate();
+    },
+    formatPrice(price) {
+      return formatPrice(price, { currency: this.selectedCurrency });
+    },
     async loadCardData() {
       try {
         const response = await fetch('card-data/card_data.json');
@@ -1490,7 +1518,7 @@ export const DeckPriceCalculatorCore = {
           <div class="result-summary">
             <div class="result-item">
               <span class="result-label">Total Price:</span>
-              <span class="result-value">\${{ calculationResult.totalPrice.toFixed(2) }}</span>
+              <span class="result-value">{{ formatPrice(calculationResult.totalPrice) }}</span>
             </div>
             <div class="result-item">
               <span class="result-label">Total Cards:</span>
@@ -1624,7 +1652,7 @@ export const DeckPriceCalculatorCore = {
                   <td class="mobile-hidden-column">
                     <div v-if="detail.usingFallback" class="price-with-fallback-wrapper">
                       <span class="price-with-fallback-text">
-                        \${{ detail.unitPrice.toFixed(2) }}
+                        {{ formatPrice(detail.unitPrice) }}
                       </span>
                       <div class="price-fallback-info-container">
                         <span 
@@ -1641,9 +1669,9 @@ export const DeckPriceCalculatorCore = {
                         </div>
                       </div>
                     </div>
-                    <span v-else>\${{ detail.unitPrice.toFixed(2) }}</span>
+                    <span v-else>{{ formatPrice(detail.unitPrice) }}</span>
                   </td>
-                  <td class="mobile-hidden-column">\${{ detail.lineTotal.toFixed(2) }}</td>
+                  <td class="mobile-hidden-column">{{ formatPrice(detail.lineTotal) }}</td>
                 </tr>
               </tbody>
             </table>
@@ -1656,7 +1684,7 @@ export const DeckPriceCalculatorCore = {
           <div class="sticky-footer-content">
             <div class="sticky-footer-item">
               <span class="sticky-footer-label">Total Price:</span>
-              <span class="sticky-footer-value">\${{ calculationResult.totalPrice.toFixed(2) }}</span>
+              <span class="sticky-footer-value">{{ formatPrice(calculationResult.totalPrice) }}</span>
             </div>
             <div class="sticky-footer-item">
               <span class="sticky-footer-label">Total Cards:</span>
@@ -1737,7 +1765,7 @@ export const DeckPriceCalculatorCore = {
                 <div class="mobile-card-modal-value">
                   <div v-if="currentModalDetail.usingFallback" class="price-with-fallback-wrapper">
                     <span class="price-with-fallback-text">
-                      \${{ currentModalDetail.unitPrice.toFixed(2) }}
+                      {{ formatPrice(currentModalDetail.unitPrice) }}
                     </span>
                     <div class="price-fallback-info-container">
                       <span 
@@ -1754,13 +1782,13 @@ export const DeckPriceCalculatorCore = {
                       </div>
                     </div>
                   </div>
-                  <span v-else>\${{ currentModalDetail.unitPrice.toFixed(2) }}</span>
+                  <span v-else>{{ formatPrice(currentModalDetail.unitPrice) }}</span>
                 </div>
               </div>
               <div class="mobile-card-modal-item">
                 <div class="mobile-card-modal-label">Total</div>
                 <div class="mobile-card-modal-value">
-                  \${{ currentModalDetail.lineTotal.toFixed(2) }}
+                  {{ formatPrice(currentModalDetail.lineTotal) }}
                 </div>
               </div>
             </div>

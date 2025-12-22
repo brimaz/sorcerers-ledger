@@ -555,12 +555,35 @@ li:last-child {
 nav {
     text-align: center;
     margin-bottom: 20px;
+    background-color: #ffffff;
+}
+
+.nav-container {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
     align-items: center;
     gap: 10px;
-    background-color: #ffffff;
+    width: 100%;
+    position: relative;
+}
+
+.nav-left {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    gap: 10px;
+    justify-content: center;
+}
+
+.nav-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+    position: absolute;
+    right: 0;
+    padding-right: 5px;
 }
 
 .nav-toggle {
@@ -747,14 +770,32 @@ nav a:hover {
 @media (max-width: 768px) {
     nav {
         position: relative;
-        flex-direction: row;
-        align-items: flex-start;
-        justify-content: flex-start !important;
-        text-align: left !important;
         padding: 0 !important;
         margin: 0 0 20px 0 !important;
         width: 100% !important;
         max-width: 100% !important;
+    }
+    
+    .nav-container {
+        flex-direction: row;
+        align-items: flex-start;
+        justify-content: space-between;
+        text-align: left !important;
+        position: relative;
+    }
+    
+    .nav-left {
+        flex: 1;
+        min-width: 0;
+        justify-content: flex-start;
+    }
+    
+    .nav-controls {
+        padding: 10px 15px 10px 0;
+        flex-shrink: 0;
+        z-index: 1001;
+        position: relative;
+        right: auto;
     }
     
     .nav-header {
@@ -889,6 +930,137 @@ nav a:hover {
     /* Override nav-links a text-align for nested children */
     .nav-nested-children .nav-nested-child {
         text-align: center !important;
+    }
+}
+
+/* Currency Selector Styles */
+.currency-selector {
+    position: relative;
+    display: inline-block;
+    margin: 0;
+}
+
+.currency-selector-button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 14px;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.95em;
+    color: #007bff;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.currency-selector-button:hover {
+    background-color: #e9ecef;
+    border-color: #007bff;
+}
+
+.currency-selector-symbol {
+    font-weight: bold;
+    font-size: 1.1em;
+}
+
+.currency-selector-code {
+    font-weight: 500;
+}
+
+.currency-selector-arrow {
+    font-size: 0.7em;
+    transition: transform 0.2s ease;
+    margin-left: 4px;
+}
+
+.currency-selector-open .currency-selector-arrow {
+    transform: rotate(180deg);
+}
+
+.currency-selector-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: white;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border-radius: 5px;
+    min-width: 200px;
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 1000;
+    margin-top: 5px;
+    padding: 8px 0;
+}
+
+.currency-selector-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    user-select: none;
+}
+
+.currency-selector-option:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+}
+
+.currency-selector-option-selected {
+    background-color: rgba(0, 123, 255, 0.1);
+    font-weight: 500;
+}
+
+.currency-selector-option-symbol {
+    font-weight: bold;
+    font-size: 1.1em;
+    min-width: 30px;
+}
+
+.currency-selector-option-code {
+    font-weight: 500;
+    min-width: 50px;
+}
+
+.currency-selector-option-name {
+    flex: 1;
+    color: #666;
+    font-size: 0.9em;
+}
+
+.currency-selector-check {
+    color: #007bff;
+    font-weight: bold;
+    margin-left: auto;
+}
+
+.currency-selector-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 999;
+    background: transparent;
+}
+
+/* Mobile currency selector */
+@media (max-width: 768px) {
+    .currency-selector {
+        margin: 0;
+    }
+    
+    .currency-selector-button {
+        padding: 8px 12px;
+        font-size: 0.9em;
+    }
+    
+    .currency-selector-dropdown {
+        right: 0;
+        left: auto;
+        min-width: 180px;
     }
 }
 
@@ -2472,10 +2644,6 @@ nav a.router-link-exact-active {
     font-size: 0.85em;
 }
 
-.card-price {
-    font-weight: bold;
-    color: #007bff;
-}
 
 .card-quantity-controls {
     display: flex;

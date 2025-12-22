@@ -8,6 +8,8 @@ ENV/
 __pycache__/
 ebay_token.json
 tcgplayer_token.json
+exchange_rates.json
+apps/*/logs/
 card-data/
 testing-scripts/
 .vscode/

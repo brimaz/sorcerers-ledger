@@ -1,4 +1,5 @@
 import { generateTcgplayerCardLink } from '/core/frontend/utils/cardLinkUtils.js';
+import { formatPrice, getSelectedCurrency } from '/core/frontend/utils/currencyUtils.js';
 
 export const CardItem = {
   props: [
@@ -19,7 +20,17 @@ export const CardItem = {
   ],
   data() {
     return {
+      selectedCurrency: getSelectedCurrency()
     };
+  },
+  mounted() {
+    // Listen for currency changes
+    window.addEventListener('currency-changed', this.handleCurrencyChange);
+    window.addEventListener('currency-updated', this.handleCurrencyUpdate);
+  },
+  beforeUnmount() {
+    window.removeEventListener('currency-changed', this.handleCurrencyChange);
+    window.removeEventListener('currency-updated', this.handleCurrencyUpdate);
   },
   watch: {
     tcgplayerTrackingLink(newVal, oldVal) {
@@ -66,8 +77,8 @@ export const CardItem = {
         if (marketPrice === 0 || isNaN(marketPrice)) {
           return 'N/A';
         }
-        // Otherwise, show the actual market price
-        return `$ ${this.card.tcgplayerMarketPrice}`;
+        // Otherwise, show the actual market price with currency formatting
+        return formatPrice(marketPrice, { currency: this.selectedCurrency });
       }
       
       // For other price types, use standard logic
@@ -76,7 +87,7 @@ export const CardItem = {
       if (price === 0 || isNaN(price)) {
         return 'N/A';
       }
-      return `$ ${priceValue}`;
+      return formatPrice(price, { currency: this.selectedCurrency });
     },
     imageUrl() {
       // Use TCGplayer image URL from product info
@@ -166,6 +177,13 @@ export const CardItem = {
     },
   },
   methods: {
+    handleCurrencyChange(event) {
+      this.selectedCurrency = event.detail.currency;
+    },
+    handleCurrencyUpdate() {
+      this.selectedCurrency = getSelectedCurrency();
+      this.$forceUpdate();
+    },
     getPriceFluctuation(currentCard, setName) {
       if (!this.allOldSetsCardData[setName]) {
         return { arrow: '', colorClass: '', priceChange: 0 };

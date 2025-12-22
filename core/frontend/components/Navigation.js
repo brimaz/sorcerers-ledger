@@ -1,4 +1,9 @@
+import { CurrencySelector } from './CurrencySelector.js';
+
 export const Navigation = {
+  components: {
+    CurrencySelector
+  },
   props: {
     gameConfig: {
       type: Object,
@@ -153,56 +158,63 @@ export const Navigation = {
   },
   template: `
     <nav :class="{ 'nav-expanded': isNavExpanded }">
-      <div class="nav-header" v-if="isMobileOrTablet()">
-        <button 
-           @click.stop.prevent="toggleNav" 
-           class="nav-hamburger"
-           :class="{ 'nav-hamburger-active': isNavExpanded }">
-          <span class="hamburger-line"></span>
-          <span class="hamburger-line"></span>
-          <span class="hamburger-line"></span>
-        </button>
-      </div>
-      <div class="nav-links" :class="{ 'nav-links-visible': !isMobileOrTablet() || isNavExpanded }">
-        <template v-for="item in navigationItems" :key="item.label">
-          <!-- Regular link items -->
-          <router-link 
-            v-if="item.type === 'link'"
-            :to="typeof item.to === 'string' ? item.to : item.to"
-            @click="closeNav"
-            active-class=""
-            exact-active-class=""
-            :class="[item.cssClass || '', { active: item.isActive ? item.isActive() : false }]">
-            {{ item.label }}
-          </router-link>
-          
-          <!-- Nested navigation items -->
-          <div v-else-if="item.type === 'nested'" class="nav-nested-container">
-            <div 
-              class="nav-nested-header"
-              :class="{ active: item.isActive ? item.isActive() : false, expanded: isNestedNavExpanded(item.label) }"
-              @click.stop="toggleNestedNav(item.label)">
-              <span>{{ item.label }}</span>
-              <span class="nav-nested-arrow">▼</span>
-            </div>
-            <div 
-              class="nav-nested-children"
-              :class="{ 'nav-nested-children-visible': isNestedNavExpanded(item.label) }">
+      <div class="nav-container">
+        <div class="nav-left">
+          <div class="nav-header" v-if="isMobileOrTablet()">
+            <button 
+               @click.stop.prevent="toggleNav" 
+               class="nav-hamburger"
+               :class="{ 'nav-hamburger-active': isNavExpanded }">
+              <span class="hamburger-line"></span>
+              <span class="hamburger-line"></span>
+              <span class="hamburger-line"></span>
+            </button>
+          </div>
+          <div class="nav-links" :class="{ 'nav-links-visible': !isMobileOrTablet() || isNavExpanded }">
+            <template v-for="item in navigationItems" :key="item.label">
+              <!-- Regular link items -->
               <router-link 
-                v-for="child in item.children"
-                :key="child.label"
-                :to="typeof child.to === 'string' ? child.to : child.to"
+                v-if="item.type === 'link'"
+                :to="typeof item.to === 'string' ? item.to : item.to"
                 @click="closeNav"
                 active-class=""
                 exact-active-class=""
-                :class="{ active: child.isActive ? child.isActive() : false }"
-                class="nav-nested-child">
-                {{ child.label }}
+                :class="[item.cssClass || '', { active: item.isActive ? item.isActive() : false }]">
+                {{ item.label }}
               </router-link>
-            </div>
+              
+              <!-- Nested navigation items -->
+              <div v-else-if="item.type === 'nested'" class="nav-nested-container">
+                <div 
+                  class="nav-nested-header"
+                  :class="{ active: item.isActive ? item.isActive() : false, expanded: isNestedNavExpanded(item.label) }"
+                  @click.stop="toggleNestedNav(item.label)">
+                  <span>{{ item.label }}</span>
+                  <span class="nav-nested-arrow">▼</span>
+                </div>
+                <div 
+                  class="nav-nested-children"
+                  :class="{ 'nav-nested-children-visible': isNestedNavExpanded(item.label) }">
+                  <router-link 
+                    v-for="child in item.children"
+                    :key="child.label"
+                    :to="typeof child.to === 'string' ? child.to : child.to"
+                    @click="closeNav"
+                    active-class=""
+                    exact-active-class=""
+                    :class="{ active: child.isActive ? child.isActive() : false }"
+                    class="nav-nested-child">
+                    {{ child.label }}
+                  </router-link>
+                </div>
+              </div>
+            </template>
+            <a :href="'mailto:' + contactEmail" class="contact-email" @click="closeNav">{{ contactEmail }}</a>
           </div>
-        </template>
-        <a :href="'mailto:' + contactEmail" class="contact-email" @click="closeNav">{{ contactEmail }}</a>
+        </div>
+        <div class="nav-controls">
+          <CurrencySelector />
+        </div>
       </div>
       <div v-if="isNavExpanded && isMobileOrTablet()" 
            class="nav-backdrop" 

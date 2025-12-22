@@ -33,7 +33,16 @@ export const PrivacyPolicy = {
             <li><strong>No Tracking of Usage:</strong> We <strong>do not</strong> use cookies, pixels, or other third-party tracking technologies to record your specific browsing activity or usage patterns on {{ gameTitle }}.</li>
         </ul>
         
-        <h2>2. Third-Party Data Collection</h2>
+        <h2>2. Browser Storage (LocalStorage)</h2>
+        <p>To enhance your experience, we use browser LocalStorage (not cookies) to store a single preference setting:</p>
+        <ul>
+            <li><strong>Currency Preference:</strong> We store your selected currency preference (e.g., "USD", "EUR", "JPY") in your browser's LocalStorage. This is a functional preference that allows the site to remember your currency selection between visits.</li>
+            <li><strong>What We Store:</strong> Only the currency code (3-5 characters), stored locally on your device.</li>
+            <li><strong>What We Don't Do:</strong> This data is never sent to our servers, never shared with third parties, and is not used for tracking or analytics. It is purely a functional preference stored on your device.</li>
+            <li><strong>Your Control:</strong> You can clear this data at any time by clearing your browser's LocalStorage or by selecting a different currency, which will overwrite the previous selection.</li>
+        </ul>
+        
+        <h2>3. Third-Party Data Collection</h2>
         <p>While we do not collect data directly, your usage is subject to the data collection practices of third-party services you interact with through our site:</p>
         <ul>
             <li><strong>Affiliate Links (TCGplayer):</strong> Our Service includes links to external vendor websites, primarily <strong>TCGplayer</strong>, for card purchases. These links are <strong>affiliate links</strong>, meaning we may earn a commission when you click through and make a purchase.</li>
@@ -42,16 +51,16 @@ export const PrivacyPolicy = {
             <li><strong>Data Shared with Us:</strong> While we receive aggregated, non-personally identifiable data from our affiliate program showing the volume and general nature of sales (e.g., "A user purchased Card X"), <strong>we do not receive any of your personal details, such as your name, contact information, or what you are buying specifically.</strong></li>
         </ul>
         
-        <h2>3. Links to Other Websites</h2>
+        <h2>4. Links to Other Websites</h2>
         <p>Our Service contains links to other websites, primarily for the purpose of purchasing cards. We have no control over, and assume no responsibility for, the content, privacy policies, or practices of any third-party websites or services. The presence of a link on our site is not an endorsement of that site.</p>
         
-        <h2>4. Children's Privacy</h2>
+        <h2>5. Children's Privacy</h2>
         <p>Our Service is not directed to individuals under the age of 13. We do not knowingly collect personally identifiable information from children under 13. If you are a parent or guardian and you are aware that your child has provided us with personal data, please contact us so we can take necessary actions.</p>
         
-        <h2>5. Changes to This Privacy Policy</h2>
+        <h2>6. Changes to This Privacy Policy</h2>
         <p>We may update our Privacy Policy from time to time. You are advised to review this Privacy Policy periodically for any changes.</p>
         
-        <h2>6. Contact Us</h2>
+        <h2>7. Contact Us</h2>
         <p>If you have any questions about this Privacy Policy, please contact us:</p>
         <ul>
             <li><strong>Email:</strong> <a :href="'mailto:' + contactEmail">{{ contactEmail }}</a></li>
